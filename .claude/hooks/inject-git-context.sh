@@ -1,6 +1,11 @@
 #!/bin/bash
 # SessionStart — injeta contexto git no início de cada sessão.
 
+if ! command -v jq &>/dev/null; then
+    echo "AVISO: jq não encontrado — hook inject-git-context desabilitado. Execute ./setup.sh" >&2
+    exit 0
+fi
+
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "fora de um repositório git")
 LAST_COMMITS=$(git log --oneline -5 2>/dev/null || echo "sem histórico")
 MODIFIED=$(git status --short 2>/dev/null | head -10 || echo "")

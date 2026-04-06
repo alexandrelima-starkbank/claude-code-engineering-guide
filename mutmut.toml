@@ -1,5 +1,9 @@
 # mutmut.toml — configuração de mutation testing
-# Ajuste paths_to_mutate e tests_dir para o layout do seu projeto.
+#
+# IMPORTANTE: paths_to_mutate e tests_dir são placeholders.
+# Ajuste para o layout do seu projeto antes de rodar `mutmut run`.
+# Os diretórios abaixo não existem neste repositório template.
+#
 # Documentação: https://mutmut.readthedocs.io
 
 [mutmut]
