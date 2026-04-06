@@ -115,29 +115,37 @@ Retorna: `file:line | HIGH/MEDIUM/LOW | issue | fix sugerido`.
 
 ---
 
-## Adicionando ao seu projeto
+## Instalação
 
-Para usar este ambiente em outro projeto, copie o diretório `.claude/` para a
-raiz do seu repositório e adicione ao `.gitignore`:
+Execute o script de setup na raiz do projeto:
 
 ```bash
-cp -r .claude/ /caminho/do/seu-projeto/
-echo ".claude/settings.local.json" >> /caminho/do/seu-projeto/.gitignore
+./setup.sh
 ```
 
-Os hooks usam caminhos relativos e funcionam de qualquer projeto.
+O script verifica e instala as dependências, torna os hooks executáveis e
+reporta o que está faltando. É idempotente — pode rodar múltiplas vezes.
+
+### Dependências
+
+| Ferramenta | Obrigatório | Usado em | Instalação |
+|------------|-------------|----------|------------|
+| `git` | sim | `inject-git-context.sh` | https://git-scm.com |
+| `python3` | sim | `validate-destructive.sh` | `brew install python3` |
+| `jq` | sim | `inject-git-context.sh` | `brew install jq` |
+| `osascript` | não | `notify-done.sh` | nativo macOS |
 
 ---
 
-## Pré-requisitos
+## Adicionando ao seu projeto
 
-| Ferramenta | Uso |
-|------------|-----|
-| `jq` | Parsing de JSON nos hooks |
-| `python3` | Parsing de JSON no `validate-destructive.sh` |
-| `osascript` | Notificação macOS (opcional) |
+Para usar este ambiente em outro projeto:
 
 ```bash
-# macOS
-brew install jq
+cp -r .claude/ /caminho/do/seu-projeto/
+cp setup.sh /caminho/do/seu-projeto/
+echo ".claude/settings.local.json" >> /caminho/do/seu-projeto/.gitignore
+cd /caminho/do/seu-projeto && ./setup.sh
 ```
+
+Os hooks usam caminhos relativos e funcionam de qualquer projeto.
