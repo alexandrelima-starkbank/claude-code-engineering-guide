@@ -27,6 +27,17 @@ if echo "$CMD" | grep -qE '\bgit\s+reset\s+--hard\b'; then
     exit 2
 fi
 
+# git checkout -- e git clean — descartam trabalho não commitado irreversivelmente
+if echo "$CMD" | grep -qE '\bgit\s+checkout\s+--\s+'; then
+    echo "BLOQUEADO: 'git checkout --' descarta alterações não commitadas. Requer confirmação explícita." >&2
+    exit 2
+fi
+
+if echo "$CMD" | grep -qE '\bgit\s+clean\s+[^|;&]*-[a-zA-Z]*f'; then
+    echo "BLOQUEADO: 'git clean -f' descarta arquivos não rastreados. Requer confirmação explícita." >&2
+    exit 2
+fi
+
 # DDL destrutivo em banco de dados
 if echo "$CMD" | grep -qiE '\b(DROP\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\s+TABLE)\b'; then
     echo "BLOQUEADO: operação DDL destrutiva requer confirmação explícita." >&2

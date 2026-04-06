@@ -48,13 +48,17 @@ Bloqueia antes de executar:
 
 | Comando | Motivo |
 |---------|--------|
-| `rm -rf` | Deleção irreversível |
-| `git push --force` / `git reset --hard` | Reescrita de histórico publicado |
+| `rm -rf` (e variantes com `sudo`) | Deleção irreversível |
+| `git push --force` / `--force-with-lease` | Reescrita de histórico publicado |
+| `git reset --hard` | Descarta commits locais |
+| `git checkout -- .` | Descarta alterações não commitadas |
+| `git clean -f` | Descarta arquivos não rastreados |
 | `DROP TABLE` / `TRUNCATE TABLE` | DDL destrutivo |
 
-Claude pode executar esses comandos se o usuário confirmar explicitamente.
+O hook retorna `exit 2`, que o Claude Code interpreta como bloqueio. Claude não executa
+o comando — reporta o bloqueio ao usuário para que ele decida como prosseguir.
 
-### `PostToolUse/Edit|Write` → `check-bash-syntax.sh`
+### `PostToolUse/Edit|Write|MultiEdit` → `check-bash-syntax.sh`
 
 Após qualquer edição em arquivos `.sh` ou `.bash`:
 1. `bash -n` — verificação de sintaxe
@@ -62,7 +66,7 @@ Após qualquer edição em arquivos `.sh` ou `.bash`:
 
 Retorna feedback para Claude corrigir antes de continuar.
 
-### `PostToolUse/Edit|Write` → `check-python-style.sh`
+### `PostToolUse/Edit|Write|MultiEdit` → `check-python-style.sh`
 
 Após qualquer edição em arquivos `.py`, detecta violações das convenções:
 
