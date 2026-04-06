@@ -1,0 +1,11 @@
+# mutmut.toml — configuração de mutation testing
+# Ajuste paths_to_mutate e tests_dir para o layout do seu projeto.
+# Documentação: https://mutmut.readthedocs.io
+
+[mutmut]
+paths_to_mutate = "src/"
+tests_dir = "tests/"
+runner = "python -m pytest -x --timeout=60 -q"
+
+# Descomente para excluir arquivos específicos:
+# exclude = ["src/migrations/", "src/scripts/"]

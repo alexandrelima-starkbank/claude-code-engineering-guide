@@ -1,0 +1,22 @@
+# pyproject.toml — configuração de ferramentas Python
+# Ajuste conforme o layout e convenções do seu projeto.
+
+[tool.ruff]
+# Aplique a partir da raiz do projeto
+
+[tool.ruff.lint]
+# E = pycodestyle errors
+# F = pyflakes (imports não usados, variáveis indefinidas)
+# W = pycodestyle warnings
+# I = isort (ordenação de imports)
+# Regras de nomenclatura (N) deliberadamente excluídas — esta codebase usa camelCase
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line too long — flexível nesta codebase
+    "E741",  # ambiguous variable names — pode conflitar com camelCase
+]
+
+[tool.ruff.lint.isort]
+# Três grupos: stdlib, external, local — separados por linha em branco
+force-sort-within-sections = false
+known-first-party = []

@@ -16,6 +16,7 @@ FAILED=0
 
 echo "Configurando ambiente Claude Code..."
 echo ""
+echo "── Dependências obrigatórias ──────────────────────────────────────────────"
 
 # ─── git ──────────────────────────────────────────────────────────────────────
 # Usado em: inject-git-context.sh
@@ -40,8 +41,7 @@ else
 fi
 
 # ─── jq ───────────────────────────────────────────────────────────────────────
-# Usado em: inject-git-context.sh (constrói JSON de saída do hook SessionStart)
-#           check-bash-syntax.sh (parse do file_path via stdin)
+# Usado em: todos os hooks (parse de JSON via stdin/stdout)
 if command -v jq &>/dev/null; then
     ok "jq $(jq --version)"
 else
@@ -64,8 +64,58 @@ else
         else
             warn "  → sudo apt install jq   (Debian/Ubuntu)"
             warn "  → sudo dnf install jq   (Fedora/RHEL)"
-            warn "  → https://jqlang.github.io/jq/download/"
         fi
+    fi
+fi
+
+echo ""
+echo "── Ferramentas de qualidade (opcionais — hooks degradam silenciosamente) ──"
+
+# ─── shellcheck ───────────────────────────────────────────────────────────────
+# Usado em: check-bash-syntax.sh (análise de qualidade de scripts shell)
+if command -v shellcheck &>/dev/null; then
+    ok "shellcheck $(shellcheck --version | awk '/version:/{print $2}')"
+else
+    warn "shellcheck não encontrado — análise de qualidade shell desabilitada"
+    INSTALLED=0
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
+        brew install shellcheck && INSTALLED=1
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y shellcheck && INSTALLED=1
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y shellcheck && INSTALLED=1
+    fi
+    if [ "$INSTALLED" -eq 1 ] && command -v shellcheck &>/dev/null; then
+        ok "shellcheck instalado"
+    else
+        warn "  → brew install shellcheck  (macOS)"
+        warn "  → sudo apt install shellcheck  (Debian/Ubuntu)"
+    fi
+fi
+
+# ─── ruff ─────────────────────────────────────────────────────────────────────
+# Linter Python — configurado em pyproject.toml (ignora regras de nomenclatura)
+if command -v ruff &>/dev/null; then
+    ok "ruff $(ruff --version)"
+else
+    warn "ruff não encontrado — linting Python desabilitado"
+    if command -v pip3 &>/dev/null; then
+        pip3 install ruff --quiet && ok "ruff instalado" || warn "  → pip3 install ruff"
+    elif [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
+        warn "  → brew install ruff   ou   pip3 install ruff"
+    fi
+fi
+
+# ─── mutmut ───────────────────────────────────────────────────────────────────
+# Mutation testing — usado em /mutation-test e /tdd (gate de qualidade)
+if command -v mutmut &>/dev/null; then
+    ok "mutmut $(mutmut --version 2>/dev/null | head -1)"
+else
+    warn "mutmut não encontrado — mutation testing desabilitado"
+    if command -v pip3 &>/dev/null; then
+        pip3 install mutmut --quiet && ok "mutmut instalado" || warn "  → pip3 install mutmut"
+    else
+        warn "  → pip3 install mutmut"
     fi
 fi
 
@@ -80,7 +130,7 @@ fi
 
 # ─── hooks executáveis ────────────────────────────────────────────────────────
 echo ""
-echo "Tornando hooks executáveis..."
+echo "── Permissões ──────────────────────────────────────────────────────────────"
 if chmod +x .claude/hooks/*.sh 2>/dev/null; then
     ok "permissões aplicadas em .claude/hooks/"
 else

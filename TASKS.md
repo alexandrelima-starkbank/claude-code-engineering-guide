@@ -78,9 +78,20 @@ Cada tarefa deve seguir exatamente este formato:
 - **Status:** <pendente | em andamento | bloqueado | concluído>
 - **Descrição:** <o que precisa ser feito e por quê, com contexto suficiente para
   retomar sem ajuda do usuário>
-- **Critério de aceitação:** <como saber objetivamente que a tarefa está concluída>
+- **Critério de aceitação:**
+  **Cenário: <nome>**
+  - Dado: <pré-condições>
+  - Quando: <ação>
+  - Então: <resultado esperado> → `test<Cenário>_<Condição>`
+
+  *(repetir para cada cenário — caminho feliz, erros, edge cases)*
 - **Observações:** <decisões, bloqueios, dependências, ponto de parada — omitir se vazio>
 ```
+
+O campo **Critério de aceitação** é obrigatório no formato Dado/Quando/Então.
+Cada "Então" deve mapear para exatamente um método de teste (`test<Cenário>_<Condição>`).
+Critérios vagos como "funciona corretamente" não são aceitos.
+Use `/spec <descrição>` para gerar os cenários automaticamente.
 
 ---
 

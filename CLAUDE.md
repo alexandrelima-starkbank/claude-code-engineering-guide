@@ -199,6 +199,55 @@ python -m pytest tests/parserTest.py::ParserTest::testParse_WithEmptyInput -v
 
 ---
 
+## Linting
+
+Este projeto usa `ruff` para linting Python. A configuração está em `pyproject.toml`.
+
+```bash
+# Verificar
+ruff check .
+
+# Corrigir automaticamente
+ruff check --fix .
+```
+
+Regras ativas: `E` (pycodestyle errors), `F` (pyflakes), `W` (warnings), `I` (isort).
+Regras de nomenclatura (`N`) estão **desabilitadas** — a codebase usa camelCase.
+
+O hook `check-python-style.sh` detecta automaticamente após cada edição:
+- f-strings (use `.format()`)
+- blocos `else` (use early return)
+- type hints em funções (`def func(param: str)` ou `-> int`)
+- docstrings
+
+---
+
+## Testes de Mutação
+
+Mutation testing verifica se os testes detectariam bugs reais. Meta: **100%** de score.
+
+```bash
+# Rodar em todo o escopo configurado (mutmut.toml)
+mutmut run
+
+# Após a primeira rodada (usa cache)
+mutmut run --rerun-all
+
+# Ver mutantes sobreviventes
+mutmut results
+
+# Ver diff de um mutante específico
+mutmut show <id>
+```
+
+Quando um mutante sobrevive, há duas possibilidades:
+1. **Lacuna no teste** — escreva uma assertion que detectaria o bug
+2. **Mutante equivalente** — o mutante não muda o comportamento observável; marque com `# pragma: no mutate`
+
+Use `/mutation-test src/modulo.py` para análise guiada pelo Claude.
+
+---
+
 ## Git e Commits
 
 ### Padrão de Mensagem
