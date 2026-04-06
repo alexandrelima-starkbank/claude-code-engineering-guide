@@ -1,0 +1,5 @@
+# Claude Code — arquivo de permissões pessoais (não versionar)
+.claude/settings.local.json
+
+# macOS
+.DS_Store

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/trilaIA/.claude/hooks/inject-git-context.sh",
+            "command": "bash .claude/hooks/inject-git-context.sh",
             "timeout": 5000
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/trilaIA/.claude/hooks/validate-destructive.sh",
+            "command": "bash .claude/hooks/validate-destructive.sh",
             "timeout": 5000
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/trilaIA/.claude/hooks/notify-done.sh"
+            "command": "bash .claude/hooks/notify-done.sh"
           }
         ]
       }
