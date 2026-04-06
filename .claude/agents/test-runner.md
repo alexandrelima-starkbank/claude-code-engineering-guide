@@ -3,7 +3,6 @@ name: test-runner
 description: Runs the test suite and reports only failures. Use to verify correctness after code changes without polluting the main context with test output.
 tools: Bash, Read
 model: haiku
-permissionMode: acceptEdits
 maxTurns: 8
 ---
 

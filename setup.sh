@@ -1,9 +1,7 @@
 #!/bin/bash
 # setup.sh — configura o ambiente Claude Code para este projeto.
-# Verifica dependências, instala o que falta (macOS) e torna hooks executáveis.
+# Verifica dependências, instala o que falta (macOS/Linux) e torna hooks executáveis.
 # Idempotente: pode rodar múltiplas vezes sem efeitos colaterais.
-
-set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -43,24 +41,31 @@ fi
 
 # ─── jq ───────────────────────────────────────────────────────────────────────
 # Usado em: inject-git-context.sh (constrói JSON de saída do hook SessionStart)
+#           check-bash-syntax.sh (parse do file_path via stdin)
 if command -v jq &>/dev/null; then
     ok "jq $(jq --version)"
 else
     warn "jq não encontrado — tentando instalar..."
+    INSTALLED=0
     if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
-        brew install jq
-        ok "jq instalado via brew"
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        fail "jq não encontrado e brew não está disponível"
-        warn "  → Instale o brew em https://brew.sh, depois: brew install jq"
+        brew install jq && INSTALLED=1
     elif command -v apt-get &>/dev/null; then
-        sudo apt-get install -y jq
-        ok "jq instalado via apt"
+        sudo apt-get install -y jq && INSTALLED=1
     elif command -v dnf &>/dev/null; then
-        sudo dnf install -y jq
-        ok "jq instalado via dnf"
+        sudo dnf install -y jq && INSTALLED=1
+    fi
+
+    if [ "$INSTALLED" -eq 1 ] && command -v jq &>/dev/null; then
+        ok "jq instalado ($(jq --version))"
     else
-        fail "jq não encontrado — instale manualmente: https://jqlang.github.io/jq/download/"
+        fail "jq não encontrado e instalação automática falhou"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            warn "  → brew install jq   (requer Homebrew: https://brew.sh)"
+        else
+            warn "  → sudo apt install jq   (Debian/Ubuntu)"
+            warn "  → sudo dnf install jq   (Fedora/RHEL)"
+            warn "  → https://jqlang.github.io/jq/download/"
+        fi
     fi
 fi
 
@@ -76,8 +81,11 @@ fi
 # ─── hooks executáveis ────────────────────────────────────────────────────────
 echo ""
 echo "Tornando hooks executáveis..."
-chmod +x .claude/hooks/*.sh
-ok "permissões aplicadas em .claude/hooks/"
+if chmod +x .claude/hooks/*.sh 2>/dev/null; then
+    ok "permissões aplicadas em .claude/hooks/"
+else
+    fail "não foi possível aplicar permissões em .claude/hooks/ — rode a partir da raiz do projeto"
+fi
 
 # ─── resultado ────────────────────────────────────────────────────────────────
 echo ""

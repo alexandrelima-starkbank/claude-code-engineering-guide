@@ -46,6 +46,15 @@ Bloqueia antes de executar:
 
 Claude pode executar esses comandos se o usuário confirmar explicitamente.
 
+### `PostToolUse/Edit|Write` → `check-bash-syntax.sh`
+
+Após qualquer edição em arquivos `.sh` ou `.bash`, executa `bash -n` (syntax check
+sem executar). Se encontrar erros, retorna feedback para Claude corrigir antes de
+continuar. Não bloqueia tecnicamente (PostToolUse não pode impedir uma edição
+já executada), mas instrui Claude a corrigir antes de prosseguir.
+
+Não tem dependências externas — `bash` já está presente em qualquer ambiente.
+
 ### `Stop` → `notify-done.sh`
 
 Notificação macOS quando Claude termina uma tarefa longa. Silencioso em

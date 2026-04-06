@@ -134,8 +134,8 @@ from datetime import datetime
 from collections import Counter
 
 # 2. Dependências externas
-from server.utils.enum import Enum
-from server.handlers.base import BaseHandler
+from requests import get
+from click import command, option
 
 # 3. Módulos locais do projeto
 from handlers.base import BaseItemHandler
@@ -152,94 +152,6 @@ Type hints não são usados nesta codebase.
 
 Código deve ser auto-explicativo via nomes descritivos. Não adicionar comentários
 nem docstrings.
-
----
-
-## Arquitetura
-
-### Padrão Handler → Gateway → Model
-
-Todo código Python neste repositório segue a mesma separação de responsabilidades:
-
-```
-handlers/     — recebem requisição, delegam para gateways, retornam resposta
-gateways/     — lógica de negócio e acesso a dados (métodos @classmethod)
-models/       — definição de entidades e serialização
-middlewares/  — decoradores de validação (aplicados nos handlers)
-utils/        — funções puras sem estado, organizadas por domínio
-```
-
-**Handlers devem ser finos** — lógica de negócio fica nos gateways e utils.
-
-### Handlers
-
-Herdam de `BaseHandler`. Decoradores de validação em cascata, do mais externo
-para o mais interno.
-
-```python
-class ItemHandler(BaseHandler):
-
-    @validatePermission(permission=ItemPermission.view)
-    @validateQueryString("status", "ids", "limit", "cursor")
-    @validateLimit()
-    @validateCursor
-    def get(self, **data):
-        items, nextCursor = ItemGateway.getAll(
-            entityId=self.entityId(),
-            status=data["status"],
-            limit=data["limit"],
-            startCursor=data["cursor"],
-        )
-        return self.sendJson({"cursor": nextCursor, "items": [i.json() for i in items]})
-```
-
-### Gateways
-
-Classes com métodos `@classmethod`. Responsabilidades:
-
-- `new()` — factory, cria instância sem persistir
-- `getById()` / `getAll()` — queries com filtros e cursor pagination
-- `save()` — persiste
-- `set()` — builder pattern para atualizações parciais (só atualiza campos não-None)
-
-```python
-class ItemGateway:
-
-    @classmethod
-    def set(cls, item, status=None, tags=None, name=None):
-        if status is not None:
-            item.status = status
-        if tags is not None:
-            item.tags = tags
-        if name is not None:
-            item.name = name
-        return item
-```
-
-### Enums
-
-```python
-from server.utils.enum import Enum
-
-class ItemStatus(Enum):
-    pending  = "pending"
-    active   = "active"
-    blocked  = "blocked"
-    canceled = "canceled"
-```
-
-### Fixtures de Teste
-
-Use `Enum` para fixtures estáticas reutilizáveis:
-
-```python
-class DefaultItems(Enum):
-    activeItem = Item(
-        id="item-1234567890",
-        entityId="entity-1234567890",
-        status=ItemStatus.active,
-    )
-```
 
 ---
 
@@ -292,17 +204,17 @@ class ItemHandlerTest(TestCase):
 ### Rodar Testes
 
 ```bash
-# Toda a suite
-.venv/bin/python -m pytest
+# Toda a suite (da raiz do projeto, com venv ativo)
+python -m pytest
 
 # Teste individual
-.venv/bin/python -m pytest tests/handlers/itemHandlerTest.py::ItemHandlerTest::testGetItems_WithEmptyIds -v
+python -m pytest tests/handlers/itemHandlerTest.py::ItemHandlerTest::testGetItems_WithEmptyIds -v
 ```
 
 ### Medir Cobertura
 
 ```bash
-.venv/bin/python -m pytest --cov=utils --cov=handlers --cov=gateways --cov=middlewares --cov=models
+python -m pytest --cov=utils --cov=handlers --cov=gateways --cov=middlewares --cov=models
 ```
 
 Nunca reportar cobertura medida sobre um subconjunto de módulos.
@@ -337,6 +249,14 @@ feat/<descricao>
 fix/<descricao>
 chore/<descricao>
 ```
+
+---
+
+## Customização Local
+
+Cada desenvolvedor pode criar `CLAUDE.local.md` na raiz do projeto para preferências
+pessoais (atalhos, contexto local, notas de sessão). Este arquivo está no `.gitignore`
+e não é compartilhado com o time.
 
 ---
 

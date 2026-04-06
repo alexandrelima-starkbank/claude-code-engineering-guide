@@ -2,7 +2,7 @@
 # PreToolUse/Bash — bloqueia comandos destrutivos sem confirmação explícita.
 
 INPUT=$(cat)
-CMD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))")
+CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Deleção recursiva de arquivos
 if echo "$CMD" | grep -qE '\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|--recursive.*--force|--force.*--recursive)\b|\brm\s+-rf\b|\brm\s+-fr\b'; then

@@ -2,6 +2,7 @@
 name: code-reviewer
 description: Reviews code changes for quality, security, and consistency with existing patterns. Use proactively after implementing a feature or fix.
 tools: Read, Glob, Grep
+disallowedTools: Write, Edit, MultiEdit
 model: sonnet
 memory: project
 ---
