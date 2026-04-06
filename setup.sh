@@ -26,7 +26,7 @@ else
 fi
 
 # ─── python3 ──────────────────────────────────────────────────────────────────
-# Usado em: validate-destructive.sh (parse de JSON via stdin)
+# Necessário para executar código Python e testes neste projeto
 if command -v python3 &>/dev/null; then
     ok "python3 $(python3 --version | awk '{print $2}')"
 else

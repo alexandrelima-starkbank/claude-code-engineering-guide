@@ -138,10 +138,8 @@ from requests import get
 from click import command, option
 
 # 3. Módulos locais do projeto
-from handlers.base import BaseItemHandler
+from utils.parser import parseInput
 from models.item import Item, ItemStatus
-from gateways.item import ItemGateway
-from middlewares.validation import validateQueryString
 ```
 
 ### Type Hints
@@ -157,48 +155,36 @@ nem docstrings.
 
 ## Testes Unitários
 
-### Configuração (`pytest.ini`)
+<!-- Para mantenedores: este repositório não tem testes atualmente.
+     A seção abaixo define as convenções a seguir quando forem adicionados. -->
 
-```ini
-[pytest]
-testpaths = tests
-python_files = *Test.py
-python_classes = *Test*
-python_functions = test*
-addopts =
-    -v
-    --tb=short
-    -W ignore::DeprecationWarning
-```
+Quando adicionados ao projeto, os testes devem seguir estas convenções:
 
 ### Nomenclatura
 
 | Elemento | Convenção | Exemplo |
 |----------|-----------|---------|
-| Arquivo | `<Domínio>Test.py` | `itemHandlerTest.py`, `parseUtilsTest.py` |
-| Classe | `<Domínio>Test` | `ItemHandlerTest`, `ParseUtilsTest` |
-| Método | `test<Cenário>` | `testGetItems_WithEmptyIds`, `testValidate_InvalidStatus` |
+| Arquivo | `<Domínio>Test.py` | `parserTest.py`, `validatorTest.py` |
+| Classe | `<Domínio>Test` | `ParserTest`, `ValidatorTest` |
+| Método | `test<Cenário>` | `testParse_WithEmptyInput`, `testValidate_InvalidFormat` |
 
 ### Estrutura (Arrange / Act / Assert)
 
 ```python
-# tests/handlers/itemHandlerTest.py
 from unittest import TestCase
 from unittest.mock import patch
 
-class ItemHandlerTest(TestCase):
+class ParserTest(TestCase):
 
-    @patch("gateways.item.ItemGateway.getAll")
-    def testGetItems_WithEmptyIds(self, mockedGetAll):
+    def testParse_WithEmptyInput(self):
         # Arrange
-        mockedGetAll.return_value = ([], None)
+        input = ""
 
         # Act
-        response = self.client.get("/items", query_string={"ids": ""})
+        result = parseInput(input)
 
         # Assert
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["items"], [])
+        self.assertIsNone(result)
 ```
 
 ### Rodar Testes
@@ -208,16 +194,8 @@ class ItemHandlerTest(TestCase):
 python -m pytest
 
 # Teste individual
-python -m pytest tests/handlers/itemHandlerTest.py::ItemHandlerTest::testGetItems_WithEmptyIds -v
+python -m pytest tests/parserTest.py::ParserTest::testParse_WithEmptyInput -v
 ```
-
-### Medir Cobertura
-
-```bash
-python -m pytest --cov=utils --cov=handlers --cov=gateways --cov=middlewares --cov=models
-```
-
-Nunca reportar cobertura medida sobre um subconjunto de módulos.
 
 ---
 

@@ -2,6 +2,11 @@
 # PostToolUse/Edit|Write — verifica sintaxe de scripts bash após edição.
 # Usa 'bash -n' (dry-run): detecta erros de sintaxe sem executar o script.
 
+if ! command -v jq &>/dev/null; then
+    echo "AVISO: jq não encontrado — hook check-bash-syntax desabilitado. Execute ./setup.sh" >&2
+    exit 0
+fi
+
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
@@ -11,8 +16,8 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
 OUTPUT=$(bash -n "$FILE" 2>&1)
 if [ $? -ne 0 ]; then
-    jq -n --arg reason "Erro de sintaxe em ${FILE}:\n${OUTPUT}\n\nCorrija antes de continuar." \
-       '{"decision":"block","reason":$reason}'
+    REASON=$(printf "Erro de sintaxe em %s:\n%s\n\nCorrija antes de continuar." "$FILE" "$OUTPUT")
+    jq -n --arg reason "$REASON" '{"decision":"block","reason":$reason}'
     exit 0
 fi
 

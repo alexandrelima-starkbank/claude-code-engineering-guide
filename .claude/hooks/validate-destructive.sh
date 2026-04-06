@@ -1,6 +1,11 @@
 #!/bin/bash
 # PreToolUse/Bash — bloqueia comandos destrutivos sem confirmação explícita.
 
+if ! command -v jq &>/dev/null; then
+    echo "AVISO: jq não encontrado — hook validate-destructive desabilitado. Execute ./setup.sh" >&2
+    exit 0
+fi
+
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
