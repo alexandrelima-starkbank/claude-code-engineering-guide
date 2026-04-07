@@ -7,8 +7,15 @@ if ! command -v jq &>/dev/null; then
     exit 0
 fi
 
-TASKS_FILE="TASKS.md"
-[ -f "$TASKS_FILE" ] || exit 0
+# Busca TASKS.md: raiz do repositório git primeiro, depois CWD
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$GIT_ROOT" ] && [ -f "${GIT_ROOT}/TASKS.md" ]; then
+    TASKS_FILE="${GIT_ROOT}/TASKS.md"
+elif [ -f "TASKS.md" ]; then
+    TASKS_FILE="TASKS.md"
+else
+    exit 0
+fi
 
 # Extrai apenas a seção de tarefas ativas (entre ## Tarefas Ativas e ## Histórico)
 ACTIVE=$(awk '/^## Tarefas Ativas/{found=1; next} /^## Histórico/{found=0} found' "$TASKS_FILE" \
