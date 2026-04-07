@@ -3,6 +3,32 @@
 
 ---
 
+## Usando este ambiente
+
+Este repositório inclui um ambiente Claude Code pronto para times Python —
+hooks de proteção, linting automático, injeção de contexto, agentes especializados
+e slash commands para TDD, revisão de código e mutation testing.
+
+**Setup:**
+
+```bash
+# 1. Copie o ambiente para a raiz do seu projeto
+cp -r .claude/ /caminho/do/seu-projeto/
+cp setup.sh mutmut.toml pyproject.toml /caminho/do/seu-projeto/
+
+# 2. Configure os dois arquivos com os nomes dos seus pacotes
+#    pyproject.toml  → known-first-party = ["nome_do_seu_pacote"]
+#    mutmut.toml     → paths_to_mutate = "caminho/para/seu/codigo"
+
+# 3. Rode o setup na raiz do projeto
+cd /caminho/do/seu-projeto
+./setup.sh
+```
+
+A documentação completa do ambiente — hooks, agentes, comandos e skills — está em **[`.claude/README.md`](.claude/README.md)**.
+
+---
+
 ## 1. Filosofia e Quando Usar
 
 Claude Code não é um autocompletar avançado — é um agente que raciocina sobre o codebase, executa ferramentas, verifica o próprio trabalho e persiste estado entre sessões. Para extrair o máximo desse modelo mental, duas premissas definem tudo:
