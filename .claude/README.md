@@ -203,6 +203,32 @@ Meta: 100% de score. Mutantes equivalentes devem ser justificados com
 /mutation-test src/parser.py
 ```
 
+### `/blast-radius <alvo>`
+
+Analisa o impacto de mudar um campo, enum, função ou contrato em todos os
+serviços da plataforma. Usa `SERVICE_MAP.md` para descobrir serviços e regras
+de deploy.
+
+```
+/blast-radius CardStatus enum
+/blast-radius campo purchase_amount no modelo Purchase
+```
+
+Retorna: serviços afetados, risco (LOW/MEDIUM/HIGH/CRITICAL) e ordem de deploy.
+
+### `/investigate <problema>`
+
+Investiga um bug ou comportamento inesperado rastreando o fluxo de dados
+através dos serviços conforme o pipeline em `SERVICE_MAP.md`.
+
+```
+/investigate autorização falhando para cartões pré-pagos
+/investigate saldo não atualiza após pagamento de fatura
+```
+
+Apresenta o que está acontecendo, por quê, quais arquivos, impacto cross-service
+e sugestão de fix — sem implementar.
+
 ---
 
 ## Skills
@@ -224,6 +250,33 @@ Workflow TDD completo em 5 fases:
 ```
 /tdd endpoint de criação de item
 ```
+
+### `/cross-service-analysis`
+
+Análise completa de impacto cross-service em 5 passos: identifica o alvo,
+busca referências em todos os serviços, classifica cada hit por criticidade,
+determina ordem de deploy e apresenta o resultado estruturado.
+
+Requer `SERVICE_MAP.md` preenchido com os serviços da plataforma.
+
+```
+/cross-service-analysis remover campo legacy_id do modelo Card
+```
+
+---
+
+## Configuração Cross-Service
+
+Para projetos com múltiplos serviços, preencha
+`.claude/skills/cross-service-analysis/SERVICE_MAP.md` com:
+
+- Lista de serviços e seus diretórios
+- Grafo de dependências (qual serviço chama qual)
+- Contratos compartilhados (enums, mensagens de fila, schemas de API)
+- Regras de deploy específicas da plataforma
+
+Sem esse arquivo preenchido, os comandos `/blast-radius`, `/investigate` e a
+skill `/cross-service-analysis` operam sem contexto da plataforma.
 
 ---
 
