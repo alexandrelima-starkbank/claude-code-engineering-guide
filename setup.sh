@@ -115,6 +115,13 @@ else
     fi
 fi
 
+# ─── pyproject.toml — known-first-party ──────────────────────────────────────
+if [ -f "pyproject.toml" ] && grep -q 'known-first-party = \[\]' pyproject.toml; then
+    warn "pyproject.toml: known-first-party está vazio"
+    warn "  → isort não separará imports locais de third-party até você preencher"
+    warn "  → Exemplo: known-first-party = [\"meu_pacote\"]"
+fi
+
 # ─── mutmut ───────────────────────────────────────────────────────────────────
 # Mutation testing — usado em /mutation-test e /tdd (gate de qualidade)
 if command -v mutmut &>/dev/null; then

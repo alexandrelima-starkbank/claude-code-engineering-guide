@@ -60,6 +60,13 @@ Implemente o mínimo de código para fazer os testes passarem:
 
 ## Fase 4 — Verificação por Mutação
 
+Antes de rodar, confirme que `mutmut.toml` aponta para diretórios reais:
+```bash
+cat mutmut.toml
+```
+Se `paths_to_mutate` ou `tests_dir` ainda contêm placeholders (`src/`, `tests/`),
+atualize o arquivo antes de continuar.
+
 Execute mutation testing no código implementado:
 ```bash
 mutmut run --paths-to-mutate <arquivo-implementado>

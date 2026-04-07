@@ -21,12 +21,17 @@ def check(path):
         if isinstance(node, ast.JoinedStr):
             violations.append((node.lineno, "[f-string] linha {}: Use .format() em vez de f-strings"))
 
-        # else em if/else — exclui elif e try/except/else (ast.Try, não ast.If)
+        # else em if/else — exclui elif; try/except/else usa ast.Try (não capturado aqui)
         if isinstance(node, ast.If) and node.orelse:
             is_elif = len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If)
             if not is_elif:
                 else_line = node.orelse[0].lineno
                 violations.append((else_line, "[else] linha {}: Evite else — use early return"))
+
+        # else em for/while — também viola a convenção de no-else
+        if isinstance(node, (ast.For, ast.While)) and node.orelse:
+            else_line = node.orelse[0].lineno
+            violations.append((else_line, "[else] linha {}: Evite for/while...else — use flag ou early return"))
 
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.returns is not None:

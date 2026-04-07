@@ -31,8 +31,13 @@ check_file() {
         [ -n "$RUFF_OUT" ] && VIOLATIONS="${VIOLATIONS}[ruff] ${FILE}\n${RUFF_OUT}\n"
     fi
 
+    local CUSTOM_STDERR CUSTOM_ERR_FILE
+    CUSTOM_ERR_FILE=$(mktemp)
     local CUSTOM_OUT
-    CUSTOM_OUT=$(python3 "${HOOK_DIR}/python_style_check.py" "$FILE" 2>/dev/null)
+    CUSTOM_OUT=$(python3 "${HOOK_DIR}/python_style_check.py" "$FILE" 2>"$CUSTOM_ERR_FILE")
+    CUSTOM_STDERR=$(cat "$CUSTOM_ERR_FILE")
+    rm -f "$CUSTOM_ERR_FILE"
+    [ -n "$CUSTOM_STDERR" ] && VIOLATIONS="${VIOLATIONS}[checker error] ${FILE}\n${CUSTOM_STDERR}\n"
     [ -n "$CUSTOM_OUT" ] && VIOLATIONS="${VIOLATIONS}[convenções] ${FILE}\n${CUSTOM_OUT}\n"
 }
 

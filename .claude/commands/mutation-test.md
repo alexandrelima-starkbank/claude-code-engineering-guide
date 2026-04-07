@@ -6,23 +6,31 @@ allowed-tools: Bash, Read
 
 Target: **$ARGUMENTS**
 
-1. Confirm mutmut is installed:
+1. Verify configuration:
+   ```bash
+   cat mutmut.toml
+   ```
+   Confirm that `paths_to_mutate` and `tests_dir` point to directories that actually exist.
+   If they still contain placeholder values (`src/`, `tests/`), stop and ask the user to
+   update `mutmut.toml` before proceeding.
+
+2. Confirm mutmut is installed:
    ```bash
    mutmut --version
    ```
    If missing: `pip install mutmut`
 
-2. Run mutations against the target:
+3. Run mutations against the target:
    ```bash
    mutmut run --paths-to-mutate "$ARGUMENTS"
    ```
 
-3. Get the summary:
+4. Get the summary:
    ```bash
    mutmut results
    ```
 
-4. For each surviving mutant, run:
+5. For each surviving mutant, run:
    ```bash
    mutmut show <id>
    ```

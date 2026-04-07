@@ -50,6 +50,12 @@ if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+clean[[:space:]]+[^|;&]
     exit 2
 fi
 
+# git branch -D — deleta branch sem verificar merge, trabalho não mergeado é perdido
+if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+branch[[:space:]]+-D([[:space:]]|$)'; then
+    echo "BLOQUEADO: 'git branch -D' deleta branch irreversivelmente. Requer confirmação explícita." >&2
+    exit 2
+fi
+
 # git stash drop/clear descartam stashes irreversivelmente
 if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+stash[[:space:]]+(drop|clear)([[:space:]]|$)'; then
     echo "BLOQUEADO: 'git stash drop/clear' descarta trabalho salvo irreversivelmente. Requer confirmação explícita." >&2

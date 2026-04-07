@@ -3,6 +3,7 @@ name: tasks-maintainer
 description: Maintains TASKS.md — updates statuses and moves completed/cancelled tasks to Histórico. Invoke after completing any unit of work, even without explicit user request.
 tools: Read, Edit
 model: haiku
+maxTurns: 4
 ---
 
 You maintain TASKS.md. Apply the changes described to you — nothing more.
