@@ -30,7 +30,7 @@ Target: **$ARGUMENTS**
    mutmut results
    ```
 
-5. For each surviving mutant, run:
+6. For each surviving mutant, run:
    ```bash
    mutmut show <id>
    ```

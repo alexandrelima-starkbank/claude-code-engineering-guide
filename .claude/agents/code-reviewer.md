@@ -4,7 +4,6 @@ description: Reviews code changes for quality, security, and consistency. When r
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit, MultiEdit
 model: sonnet
-memory: project
 ---
 
 You are a senior code reviewer. Report findings in three tiers:

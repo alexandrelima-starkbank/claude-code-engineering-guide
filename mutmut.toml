@@ -9,7 +9,7 @@
 [mutmut]
 paths_to_mutate = "src/"
 tests_dir = "tests/"
-runner = "python -m pytest -x --timeout=60 -q"
+runner = "python3 -m pytest -x --timeout=60 -q"
 
 # Descomente para excluir arquivos específicos:
 # exclude = ["src/migrations/", "src/scripts/"]

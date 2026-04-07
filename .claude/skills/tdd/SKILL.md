@@ -41,7 +41,7 @@ def test<Cenário>_<Condição>(self):
 
 **Execute os testes agora.** Todos DEVEM falhar:
 ```bash
-python -m pytest tests/ -v
+python3 -m pytest tests/ -v
 ```
 
 Se algum teste passar antes da implementação existir, ele não está testando o comportamento correto — corrija até falhar pelo motivo certo.
