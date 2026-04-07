@@ -4,3 +4,7 @@ CLAUDE.local.md
 
 # macOS
 .DS_Store
+
+# pytest
+tests/__pycache__/
+.pytest_cache/

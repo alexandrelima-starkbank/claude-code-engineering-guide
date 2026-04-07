@@ -11,7 +11,7 @@ Este repositório contém o guia de engenharia para uso do Claude Code e o ambie
 de desenvolvimento pronto para uso (hooks, agentes, slash commands).
 
 ```
-claude-code-enginnering-guide/
+claude-code-engineering-guide/
 ├── README.md          # O guia principal
 ├── setup.sh           # Instala dependências e configura o ambiente
 ├── .claude/           # Ambiente Claude Code (hooks, agents, commands, skills)
