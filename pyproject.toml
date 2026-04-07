@@ -19,7 +19,7 @@ ignore = [
 [tool.ruff.lint.isort]
 # Três grupos: stdlib, external, local — separados por linha em branco
 force-sort-within-sections = false
-# Preencha com os nomes dos pacotes locais do projeto para separação correta de imports.
+# OBRIGATÓRIO: preencha com os nomes dos pacotes locais do projeto.
+# Sem isso o isort não distingue imports locais de third-party e a separação em 3 grupos NÃO funciona.
 # Exemplo: known-first-party = ["myapp", "myapp_utils"]
-# Sem isso, imports locais são tratados como third-party e a separação em 3 grupos não funciona.
-known-first-party = []
+known-first-party = []  # <- AJUSTE ANTES DE USAR

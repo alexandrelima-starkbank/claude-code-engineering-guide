@@ -109,7 +109,7 @@ if command -v ruff &>/dev/null; then
 else
     warn "ruff não encontrado — linting Python desabilitado"
     if command -v pip3 &>/dev/null; then
-        pip3 install ruff --quiet && ok "ruff instalado" || warn "  → pip3 install ruff"
+        pip3 install ruff --quiet 2>/dev/null || pip3 install ruff --quiet --user 2>/dev/null && ok "ruff instalado" || warn "  → pip3 install ruff --user"
     elif [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
         warn "  → brew install ruff   ou   pip3 install ruff"
     fi
@@ -122,7 +122,7 @@ if command -v mutmut &>/dev/null; then
 else
     warn "mutmut não encontrado — mutation testing desabilitado"
     if command -v pip3 &>/dev/null; then
-        pip3 install mutmut --quiet && ok "mutmut instalado" || warn "  → pip3 install mutmut"
+        pip3 install mutmut --quiet 2>/dev/null || pip3 install mutmut --quiet --user 2>/dev/null && ok "mutmut instalado" || warn "  → pip3 install mutmut --user"
     else
         warn "  → pip3 install mutmut"
     fi

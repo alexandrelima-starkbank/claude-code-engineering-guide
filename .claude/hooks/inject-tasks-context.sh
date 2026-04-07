@@ -23,7 +23,7 @@ STALE=$(echo "$ACTIVE" | grep -iE '\*\*Status:\*\*\s*(concluído|cancelado)')
 CONTEXT=$(printf "Estado atual das tarefas (TASKS.md):\n%s" "$ACTIVE")
 
 if [ -n "$STALE" ]; then
-    CONTEXT=$(printf "⚠ AÇÃO OBRIGATÓRIA: há tarefas com status 'concluído' ou 'cancelado' ainda em Tarefas Ativas.\nMova-as para ## Histórico em TASKS.md ANTES de responder a qualquer outra coisa.\n\n%s" "$CONTEXT")
+    CONTEXT=$(printf "ACAO OBRIGATORIA: ha tarefas com status 'concluido' ou 'cancelado' ainda em Tarefas Ativas.\nMova-as para ## Historico em TASKS.md ANTES de responder a qualquer outra coisa.\n\n%s" "$CONTEXT")
 fi
 
 jq -n --arg ctx "$CONTEXT" '{

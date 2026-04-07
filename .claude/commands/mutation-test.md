@@ -14,7 +14,7 @@ Target: **$ARGUMENTS**
 
 2. Run mutations against the target:
    ```bash
-   mutmut run --paths-to-mutate $ARGUMENTS
+   mutmut run --paths-to-mutate "$ARGUMENTS"
    ```
 
 3. Get the summary:
