@@ -96,6 +96,22 @@ ambientes sem `osascript` (Linux/CI).
 Instâncias isoladas de Claude com ferramentas e modelo próprios. Úteis para
 tarefas que geram muito output sem poluir o contexto principal.
 
+### `tasks-maintainer` (haiku)
+
+Mantém `TASKS.md` de forma autônoma. Recebe uma descrição do trabalho concluído,
+lê o estado atual de TASKS.md e aplica as atualizações necessárias:
+atualiza status, move tasks concluídas para `## Histórico`.
+
+Invocado pelo modelo principal ao final de qualquer trabalho concreto — sem pedido
+do usuário. Não executa código, não lê outros arquivos além de TASKS.md.
+
+**Como usar (invocado pelo modelo, não pelo usuário):**
+```
+Use the tasks-maintainer agent to update TASKS.md: task T2 was completed — all hooks verified and pushed.
+```
+
+---
+
 ### `code-reviewer` (sonnet)
 
 Revisão de código em três tiers: **MUST FIX** / **SHOULD FIX** / **NITPICK**.

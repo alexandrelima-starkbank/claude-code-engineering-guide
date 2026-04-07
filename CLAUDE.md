@@ -40,9 +40,12 @@ nenhuma solicitação do usuário — a manutenção é autônoma e ocorre em to
 
 1. **Antes de agir:** registre a tarefa com status `em andamento`. Se já existir,
    confirme que o status está correto.
-2. **Ao concluir:** mude para `concluído` **e** mova para `## Histórico` na mesma
-   resposta — nunca deixe para a próxima.
+2. **Ao concluir:** use o agente `tasks-maintainer` para atualizar TASKS.md — ele
+   move para `concluído` e para `## Histórico` na mesma operação.
 3. **Se bloquear:** mude para `bloqueado` e registre o motivo em Observações.
+
+Invocar o `tasks-maintainer` não requer pedido do usuário. É parte do fluxo normal
+de toda resposta que produza trabalho concreto.
 
 O protocolo completo (formato, critérios de aceite, regras de sessão) está em `TASKS.md`.
 
