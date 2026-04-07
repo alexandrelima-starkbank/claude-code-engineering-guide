@@ -1,6 +1,13 @@
 # pyproject.toml — configuração de ferramentas Python
 # Ajuste conforme o layout e convenções do seu projeto.
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Convenção de nomenclatura: <Domínio>Test.py com métodos test<Cenário>
+python_files = ["*Test.py"]
+python_classes = ["*Test"]
+python_functions = ["test*"]
+
 [tool.ruff]
 # Aplique a partir da raiz do projeto
 

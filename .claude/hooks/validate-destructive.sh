@@ -63,7 +63,7 @@ if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+stash[[:space:]]+(drop|
 fi
 
 # DDL destrutivo
-if echo "$CMD" | grep -qiE '(^|[[:space:]])(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)|TRUNCATE[[:space:]]+TABLE)([[:space:]]|$)'; then
+if echo "$CMD" | grep -qiE 'DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)|TRUNCATE[[:space:]]+TABLE'; then
     echo "BLOQUEADO: operação DDL destrutiva requer confirmação explícita." >&2
     exit 2
 fi
