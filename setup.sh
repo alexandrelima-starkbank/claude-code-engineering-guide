@@ -118,8 +118,8 @@ fi
 # ─── pyproject.toml — known-first-party ──────────────────────────────────────
 if [ -f "pyproject.toml" ] && grep -q 'known-first-party = \[\]' pyproject.toml; then
     fail "pyproject.toml: known-first-party está vazio"
-    warn "  → isort não separará imports locais de third-party até você preencher"
-    warn "  → Edite pyproject.toml: known-first-party = [\"nome_do_seu_pacote\"]"
+    warn "  → Execute ./configure.sh para configurar interativamente"
+    warn "  → Ou edite pyproject.toml: known-first-party = [\"nome_do_seu_pacote\"]"
 fi
 
 # ─── mutmut ───────────────────────────────────────────────────────────────────
@@ -138,7 +138,8 @@ fi
 # ─── mutmut.toml — paths_to_mutate ───────────────────────────────────────────
 if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
     fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
-    warn "  → Edite mutmut.toml: paths_to_mutate = \"caminho/para/seu/codigo\""
+    warn "  → Execute ./configure.sh para configurar interativamente"
+    warn "  → Ou edite mutmut.toml: paths_to_mutate = \"caminho/para/seu/codigo\""
 fi
 
 # ─── osascript ────────────────────────────────────────────────────────────────
