@@ -117,9 +117,9 @@ fi
 
 # ─── pyproject.toml — known-first-party ──────────────────────────────────────
 if [ -f "pyproject.toml" ] && grep -q 'known-first-party = \[\]' pyproject.toml; then
-    warn "pyproject.toml: known-first-party está vazio"
+    fail "pyproject.toml: known-first-party está vazio"
     warn "  → isort não separará imports locais de third-party até você preencher"
-    warn "  → Exemplo: known-first-party = [\"meu_pacote\"]"
+    warn "  → Edite pyproject.toml: known-first-party = [\"nome_do_seu_pacote\"]"
 fi
 
 # ─── mutmut ───────────────────────────────────────────────────────────────────

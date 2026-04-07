@@ -170,6 +170,26 @@ class DdlTest(TestCase):
 
 
 @skipUnless(HAS_JQ, "jq not installed")
+class GitCommitTest(TestCase):
+
+    def testGitCommit_coAuthoredBy_blocked(self):
+        self.assertTrue(blocked(run(
+            "git commit -m 'Fix bug\n\nCo-Authored-By: Claude <noreply@anthropic.com>'"
+        )))
+
+    def testGitCommit_coAuthoredByLowercase_blocked(self):
+        self.assertTrue(blocked(run(
+            "git commit -m 'Fix\n\nco-authored-by: test <t@t.com>'"
+        )))
+
+    def testGitCommit_normal_allowed(self):
+        self.assertTrue(allowed(run("git commit -m 'Fix linter hook'")))
+
+    def testGitCommit_withoutCoAuthored_allowed(self):
+        self.assertTrue(allowed(run('git commit -m "Add feature"')))
+
+
+@skipUnless(HAS_JQ, "jq not installed")
 class SafeCommandsTest(TestCase):
 
     def testSafeCommand_gitStatus_allowed(self):

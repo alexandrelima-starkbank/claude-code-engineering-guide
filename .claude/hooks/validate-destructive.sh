@@ -62,6 +62,13 @@ if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+stash[[:space:]]+(drop|
     exit 2
 fi
 
+# git commit com Co-Authored-By — proibido por convenção do projeto
+if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+commit([[:space:]]|$)' && \
+   echo "$CMD" | grep -qi 'Co-Authored-By'; then
+    echo "BLOQUEADO: mensagem de commit não pode conter 'Co-Authored-By'." >&2
+    exit 2
+fi
+
 # DDL destrutivo
 if echo "$CMD" | grep -qiE 'DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)|TRUNCATE[[:space:]]+TABLE'; then
     echo "BLOQUEADO: operação DDL destrutiva requer confirmação explícita." >&2
