@@ -33,11 +33,18 @@ Veja `.claude/README.md` para documentação completa do ambiente.
 
 ## Gestão de Tarefas — OBRIGATÓRIO
 
-**Toda sessão de trabalho deve ser gerenciada explicitamente através de `TASKS.md`.**
+O modelo é o responsável exclusivo pela manutenção de `TASKS.md`. Não é necessária
+nenhuma solicitação do usuário — a manutenção é autônoma e ocorre em toda resposta.
 
-O modelo DEVE ler `TASKS.md` no início de qualquer sessão que envolva implementação,
-investigação ou entrega. O protocolo completo está definido no próprio arquivo e deve
-ser seguido à risca. Não inicie nenhuma tarefa sem primeiro registrá-la lá.
+**Em toda resposta que envolva qualquer trabalho:**
+
+1. **Antes de agir:** registre a tarefa com status `em andamento`. Se já existir,
+   confirme que o status está correto.
+2. **Ao concluir:** mude para `concluído` **e** mova para `## Histórico` na mesma
+   resposta — nunca deixe para a próxima.
+3. **Se bloquear:** mude para `bloqueado` e registre o motivo em Observações.
+
+O protocolo completo (formato, critérios de aceite, regras de sessão) está em `TASKS.md`.
 
 ---
 

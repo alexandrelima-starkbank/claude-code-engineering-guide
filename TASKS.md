@@ -54,6 +54,19 @@ Se a sessão encerrar com tarefas com status `em andamento`, o modelo DEVE regis
 em Observações o ponto exato onde parou, o que foi feito até agora e o que falta
 para concluir. Isso permite que a próxima sessão retome sem perda de contexto.
 
+### Regra 8 — Manutenção Autônoma
+
+A manutenção deste arquivo é responsabilidade autônoma do modelo. Nenhuma instrução
+explícita do usuário é necessária — nem para registrar, nem para atualizar, nem para
+mover para o Histórico.
+
+O modelo DEVE, em toda resposta que envolva trabalho:
+- Registrar a tarefa antes de iniciar (se ainda não registrada)
+- Atualizar o status no momento exato de cada transição
+- Mover para `## Histórico` imediatamente ao concluir — na mesma resposta, nunca depois
+
+O usuário não precisa pedir. O modelo não pode aguardar ser questionado.
+
 ---
 
 ## Status Permitidos
