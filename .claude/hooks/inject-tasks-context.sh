@@ -1,6 +1,7 @@
 #!/bin/bash
 # UserPromptSubmit — injeta tarefas ativas do TASKS.md em cada prompt.
 # Garante que Claude sempre sabe o estado atual do trabalho sem precisar ser instruído.
+# Se houver tarefas concluídas/canceladas ainda em "Tarefas Ativas", injeta alerta urgente.
 
 if ! command -v jq &>/dev/null; then
     exit 0
@@ -16,7 +17,14 @@ ACTIVE=$(awk '/^## Tarefas Ativas/{found=1; next} /^## Histórico/{found=0} foun
 
 [ -z "$ACTIVE" ] && exit 0
 
+# Detecta tarefas concluídas ou canceladas que ainda não foram movidas para o Histórico
+STALE=$(echo "$ACTIVE" | grep -iE '\*\*Status:\*\*\s*(concluído|cancelado)')
+
 CONTEXT=$(printf "Estado atual das tarefas (TASKS.md):\n%s" "$ACTIVE")
+
+if [ -n "$STALE" ]; then
+    CONTEXT=$(printf "⚠ AÇÃO OBRIGATÓRIA: há tarefas com status 'concluído' ou 'cancelado' ainda em Tarefas Ativas.\nMova-as para ## Histórico em TASKS.md ANTES de responder a qualquer outra coisa.\n\n%s" "$CONTEXT")
+fi
 
 jq -n --arg ctx "$CONTEXT" '{
     hookSpecificOutput: {
