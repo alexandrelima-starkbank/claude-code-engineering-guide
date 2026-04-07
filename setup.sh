@@ -135,6 +135,12 @@ else
     fi
 fi
 
+# ─── mutmut.toml — paths_to_mutate ───────────────────────────────────────────
+if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
+    fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
+    warn "  → Edite mutmut.toml: paths_to_mutate = \"caminho/para/seu/codigo\""
+fi
+
 # ─── osascript ────────────────────────────────────────────────────────────────
 # Usado em: notify-done.sh (notificação macOS ao terminar tarefa)
 # Opcional — o hook degrada silenciosamente se ausente.
