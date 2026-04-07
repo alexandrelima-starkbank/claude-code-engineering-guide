@@ -8,8 +8,7 @@ def check(path):
         with open(path, encoding="utf-8") as fh:
             source = fh.read()
         tree = ast.parse(source, filename=path)
-    except SyntaxError as e:
-        print("[syntax] linha {}: {}".format(e.lineno, e.msg))
+    except SyntaxError:
         sys.exit(0)
     except Exception:
         sys.exit(0)

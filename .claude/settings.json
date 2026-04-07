@@ -57,7 +57,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/notify-done.sh"
+            "command": "bash .claude/hooks/notify-done.sh",
+            "timeout": 5000
           }
         ]
       }
