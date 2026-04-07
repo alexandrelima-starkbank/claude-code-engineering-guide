@@ -59,6 +59,10 @@ Bloqueia antes de executar:
 O hook retorna `exit 2`, que o Claude Code interpreta como bloqueio. Claude não executa
 o comando — reporta o bloqueio ao usuário para que ele decida como prosseguir.
 
+> **Limitação:** a validação é baseada em texto. Comandos compostos via `eval`, `bash -c`
+> ou variáveis indiretas não são interceptados. O hook é uma camada de proteção
+> contra erros acidentais, não um controle de segurança rígido.
+
 ### `PostToolUse/Edit|Write|MultiEdit` → `check-bash-syntax.sh`
 
 Após qualquer edição em arquivos `.sh` ou `.bash`:

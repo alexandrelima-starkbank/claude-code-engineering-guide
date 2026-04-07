@@ -13,15 +13,16 @@ fi
 
 INPUT=$(cat)
 VIOLATIONS=""
-declare -A SEEN_FILES
+SEEN_FILES=$(mktemp)
+trap 'rm -f "$SEEN_FILES"' EXIT
 
 check_file() {
     local FILE="$1"
     [[ "$FILE" =~ \.(sh|bash)$ ]] || return
     [ -f "$FILE" ] || return
-    # Deduplicar arquivos repetidos em MultiEdit
-    [ -n "${SEEN_FILES[$FILE]}" ] && return
-    SEEN_FILES["$FILE"]=1
+    # Deduplicar arquivos repetidos em MultiEdit (compatível com bash 3.2/macOS)
+    grep -qxF "$FILE" "$SEEN_FILES" && return
+    echo "$FILE" >> "$SEEN_FILES"
 
     local SYNTAX
     SYNTAX=$(bash -n "$FILE" 2>&1)

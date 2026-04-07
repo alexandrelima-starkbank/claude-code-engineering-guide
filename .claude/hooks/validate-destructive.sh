@@ -28,14 +28,17 @@ if echo "$CMD" | grep -qE '\bgit\s+reset\s+--hard\b'; then
 fi
 
 # git checkout -- e git restore — descartam alterações não commitadas irreversivelmente
+# Exceção: git restore --staged (sem --worktree/-W) apenas remove do staging — operação segura
 if echo "$CMD" | grep -qE '\bgit\s+checkout\s+--\s+'; then
     echo "BLOQUEADO: 'git checkout --' descarta alterações não commitadas. Requer confirmação explícita." >&2
     exit 2
 fi
 
 if echo "$CMD" | grep -qE '\bgit\s+restore\b'; then
-    echo "BLOQUEADO: 'git restore' descarta alterações não commitadas. Requer confirmação explícita." >&2
-    exit 2
+    if ! (echo "$CMD" | grep -qE '\bgit\s+restore\b.*--staged' && ! echo "$CMD" | grep -qE '\bgit\s+restore\b.*(--worktree|-W)\b'); then
+        echo "BLOQUEADO: 'git restore' descarta alterações não commitadas. Requer confirmação explícita." >&2
+        exit 2
+    fi
 fi
 
 # git clean — descarta arquivos não rastreados irreversivelmente

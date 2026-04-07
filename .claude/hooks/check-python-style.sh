@@ -14,15 +14,16 @@ fi
 INPUT=$(cat)
 HOOK_DIR="$(dirname "$0")"
 VIOLATIONS=""
-declare -A SEEN_FILES
+SEEN_FILES=$(mktemp)
+trap 'rm -f "$SEEN_FILES"' EXIT
 
 check_file() {
     local FILE="$1"
     [[ "$FILE" =~ \.py$ ]] || return
     [ -f "$FILE" ] || return
-    # Deduplicar arquivos repetidos em MultiEdit
-    [ -n "${SEEN_FILES[$FILE]}" ] && return
-    SEEN_FILES["$FILE"]=1
+    # Deduplicar arquivos repetidos em MultiEdit (compatível com bash 3.2/macOS)
+    grep -qxF "$FILE" "$SEEN_FILES" && return
+    echo "$FILE" >> "$SEEN_FILES"
 
     if command -v ruff &>/dev/null; then
         local RUFF_OUT
