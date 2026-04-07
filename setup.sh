@@ -33,7 +33,7 @@ if command -v python3 &>/dev/null; then
     PY_VERSION=$(python3 --version | awk '{print $2}')
     PY_MINOR=$(echo "$PY_VERSION" | awk -F. '{print $2}')
     PY_MAJOR=$(echo "$PY_VERSION" | awk -F. '{print $1}')
-    if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 8 ]; then
+    if [ "$PY_MAJOR" -gt 3 ] || ([ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -ge 8 ]); then
         ok "python3 ${PY_VERSION}"
     else
         fail "python3 ${PY_VERSION} — versão mínima requerida: 3.8"
