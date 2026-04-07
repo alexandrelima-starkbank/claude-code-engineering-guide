@@ -14,21 +14,25 @@ fi
 INPUT=$(cat)
 HOOK_DIR="$(dirname "$0")"
 VIOLATIONS=""
+declare -A SEEN_FILES
 
 check_file() {
     local FILE="$1"
     [[ "$FILE" =~ \.py$ ]] || return
     [ -f "$FILE" ] || return
+    # Deduplicar arquivos repetidos em MultiEdit
+    [ -n "${SEEN_FILES[$FILE]}" ] && return
+    SEEN_FILES["$FILE"]=1
 
     if command -v ruff &>/dev/null; then
         local RUFF_OUT
         RUFF_OUT=$(ruff check "$FILE" --output-format=text 2>/dev/null)
-        [ -n "$RUFF_OUT" ] && VIOLATIONS="${VIOLATIONS}\n[ruff] ${FILE}\n${RUFF_OUT}"
+        [ -n "$RUFF_OUT" ] && VIOLATIONS="${VIOLATIONS}[ruff] ${FILE}\n${RUFF_OUT}\n"
     fi
 
     local CUSTOM_OUT
     CUSTOM_OUT=$(python3 "${HOOK_DIR}/python_style_check.py" "$FILE" 2>/dev/null)
-    [ -n "$CUSTOM_OUT" ] && VIOLATIONS="${VIOLATIONS}\n[convenções] ${FILE}\n${CUSTOM_OUT}"
+    [ -n "$CUSTOM_OUT" ] && VIOLATIONS="${VIOLATIONS}[convenções] ${FILE}\n${CUSTOM_OUT}\n"
 }
 
 # Edit / Write — file_path é string
@@ -44,7 +48,7 @@ while IFS= read -r F; do
 done <<< "$MULTI_FILES"
 
 if [ -n "$VIOLATIONS" ]; then
-    REASON=$(printf "Violações de estilo Python:%b\n\nCorrija antes de continuar." "$VIOLATIONS")
+    REASON=$(printf "Violações de estilo Python:\n\n%bCorrija antes de continuar." "$VIOLATIONS")
     jq -n --arg reason "$REASON" '{"decision":"block","reason":$reason}'
 fi
 

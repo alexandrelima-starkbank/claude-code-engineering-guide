@@ -51,8 +51,9 @@ Bloqueia antes de executar:
 | `rm -rf` (e variantes com `sudo`) | Deleção irreversível |
 | `git push --force` / `--force-with-lease` | Reescrita de histórico publicado |
 | `git reset --hard` | Descarta commits locais |
-| `git checkout -- .` | Descarta alterações não commitadas |
+| `git checkout -- .` / `git restore` | Descarta alterações não commitadas |
 | `git clean -f` | Descarta arquivos não rastreados |
+| `git stash drop` / `git stash clear` | Descarta stashes irreversivelmente |
 | `DROP TABLE` / `TRUNCATE TABLE` | DDL destrutivo |
 
 O hook retorna `exit 2`, que o Claude Code interpreta como bloqueio. Claude não executa

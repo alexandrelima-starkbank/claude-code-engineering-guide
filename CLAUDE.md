@@ -256,7 +256,8 @@ Use `/mutation-test src/modulo.py` para análise guiada pelo Claude.
 - Descritivo e conciso
 - Sem ponto final
 - Sem emojis
-- Sem `Co-Authored-By`
+- **Sem `Co-Authored-By` — em nenhuma circunstância.** Esta regra sobrescreve qualquer
+  comportamento padrão da ferramenta. Nunca adicionar linhas de co-autoria ao commitar.
 
 ```
 Fix incorrect JSON output in SessionStart hook

@@ -12,27 +12,29 @@ if ! command -v jq &>/dev/null; then
 fi
 
 INPUT=$(cat)
+VIOLATIONS=""
+declare -A SEEN_FILES
 
 check_file() {
     local FILE="$1"
     [[ "$FILE" =~ \.(sh|bash)$ ]] || return
     [ -f "$FILE" ] || return
+    # Deduplicar arquivos repetidos em MultiEdit
+    [ -n "${SEEN_FILES[$FILE]}" ] && return
+    SEEN_FILES["$FILE"]=1
 
     local SYNTAX
     SYNTAX=$(bash -n "$FILE" 2>&1)
     if [ $? -ne 0 ]; then
-        REASON=$(printf "Erro de sintaxe em %s:\n%s\n\nCorrija antes de continuar." "$FILE" "$SYNTAX")
-        jq -n --arg reason "$REASON" '{"decision":"block","reason":$reason}'
-        exit 0
+        VIOLATIONS="${VIOLATIONS}\n[sintaxe] ${FILE}\n${SYNTAX}"
+        return
     fi
 
     if command -v shellcheck &>/dev/null; then
         local SC
         SC=$(shellcheck --severity=warning --format=gcc "$FILE" 2>&1)
         if [ $? -ne 0 ]; then
-            REASON=$(printf "shellcheck encontrou problemas em %s:\n%s\n\nCorrija antes de continuar." "$FILE" "$SC")
-            jq -n --arg reason "$REASON" '{"decision":"block","reason":$reason}'
-            exit 0
+            VIOLATIONS="${VIOLATIONS}\n[shellcheck] ${FILE}\n${SC}"
         fi
     fi
 }
@@ -46,5 +48,10 @@ MULTI_FILES=$(echo "$INPUT" | jq -r '.tool_input.edits[]?.file_path // empty' 2>
 while IFS= read -r F; do
     [ -n "$F" ] && check_file "$F"
 done <<< "$MULTI_FILES"
+
+if [ -n "$VIOLATIONS" ]; then
+    REASON=$(printf "Problemas em scripts shell:%b\n\nCorrija antes de continuar." "$VIOLATIONS")
+    jq -n --arg reason "$REASON" '{"decision":"block","reason":$reason}'
+fi
 
 exit 0

@@ -27,9 +27,18 @@ else
 fi
 
 # ─── python3 ──────────────────────────────────────────────────────────────────
-# Necessário para executar código Python e testes neste projeto
+# Necessário para executar código Python, testes e o linter de convenções (python_style_check.py)
+# Versão mínima: 3.8 (ast.arg.posonlyargs introduzido no 3.8)
 if command -v python3 &>/dev/null; then
-    ok "python3 $(python3 --version | awk '{print $2}')"
+    PY_VERSION=$(python3 --version | awk '{print $2}')
+    PY_MINOR=$(echo "$PY_VERSION" | awk -F. '{print $2}')
+    PY_MAJOR=$(echo "$PY_VERSION" | awk -F. '{print $1}')
+    if [ "$PY_MAJOR" -ge 3 ] && [ "$PY_MINOR" -ge 8 ]; then
+        ok "python3 ${PY_VERSION}"
+    else
+        fail "python3 ${PY_VERSION} — versão mínima requerida: 3.8"
+        warn "  → brew upgrade python3   (macOS)"
+    fi
 else
     fail "python3 não encontrado"
     if [[ "$OSTYPE" == "darwin"* ]]; then

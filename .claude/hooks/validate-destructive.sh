@@ -27,14 +27,26 @@ if echo "$CMD" | grep -qE '\bgit\s+reset\s+--hard\b'; then
     exit 2
 fi
 
-# git checkout -- e git clean — descartam trabalho não commitado irreversivelmente
+# git checkout -- e git restore — descartam alterações não commitadas irreversivelmente
 if echo "$CMD" | grep -qE '\bgit\s+checkout\s+--\s+'; then
     echo "BLOQUEADO: 'git checkout --' descarta alterações não commitadas. Requer confirmação explícita." >&2
     exit 2
 fi
 
+if echo "$CMD" | grep -qE '\bgit\s+restore\b'; then
+    echo "BLOQUEADO: 'git restore' descarta alterações não commitadas. Requer confirmação explícita." >&2
+    exit 2
+fi
+
+# git clean — descarta arquivos não rastreados irreversivelmente
 if echo "$CMD" | grep -qE '\bgit\s+clean\s+[^|;&]*-[a-zA-Z]*f'; then
     echo "BLOQUEADO: 'git clean -f' descarta arquivos não rastreados. Requer confirmação explícita." >&2
+    exit 2
+fi
+
+# git stash drop/clear — descartam stashes irreversivelmente
+if echo "$CMD" | grep -qE '\bgit\s+stash\s+(drop|clear)\b'; then
+    echo "BLOQUEADO: 'git stash drop/clear' descarta trabalho salvo irreversivelmente. Requer confirmação explícita." >&2
     exit 2
 fi
 
