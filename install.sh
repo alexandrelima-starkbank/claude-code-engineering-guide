@@ -1,0 +1,105 @@
+#!/bin/bash
+# install.sh — instala o ecossistema Claude Code em qualquer diretório.
+# Não cria nem altera o versionamento do diretório de destino.
+#
+# Uso direto (sem clonar o repositório):
+#   bash <(curl -fsSL https://raw.githubusercontent.com/alexandrelima-starkbank/claude-code-engineering-guide/main/install.sh)
+#
+# Uso com destino explícito:
+#   bash install.sh /caminho/destino
+
+REPO_URL="https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git"
+CACHE_DIR="${HOME}/.cache/claude-code-guide"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+ok()   { echo -e "${GREEN}[ok]${NC} $1"; }
+warn() { echo -e "${YELLOW}[!]${NC} $1"; }
+fail() { echo -e "${RED}[erro]${NC} $1"; exit 1; }
+
+echo ""
+echo -e "${BOLD}Instalação do ecossistema Claude Code${NC}"
+echo "────────────────────────────────────────"
+echo ""
+
+# ─── 1. git ───────────────────────────────────────────────────────────────────
+if ! command -v git &>/dev/null; then
+    warn "git não encontrado — tentando instalar..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        xcode-select --install 2>/dev/null
+        command -v git &>/dev/null || fail "git não encontrado após instalação. Instale manualmente: https://git-scm.com"
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y git || fail "Falha ao instalar git"
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y git || fail "Falha ao instalar git"
+    else
+        fail "git não encontrado. Instale em https://git-scm.com e rode novamente."
+    fi
+fi
+ok "git $(git --version | awk '{print $3}')"
+
+# ─── 2. Template (clona ou atualiza no cache) ─────────────────────────────────
+echo ""
+if [ -d "${CACHE_DIR}/.git" ]; then
+    echo "Atualizando template..."
+    git -C "$CACHE_DIR" pull --quiet origin main || warn "Falha ao atualizar — usando versão em cache"
+    ok "template: $(git -C "$CACHE_DIR" rev-parse --short HEAD)"
+else
+    echo "Baixando template..."
+    git clone --quiet --depth 1 "$REPO_URL" "$CACHE_DIR" \
+        || fail "Falha ao clonar repositório. Verifique sua conexão e tente novamente."
+    ok "template baixado"
+fi
+
+# ─── 3. Copia arquivos para o destino ─────────────────────────────────────────
+TARGET="${1:-$(pwd)}"
+echo ""
+echo "Destino: ${TARGET}"
+echo ""
+
+# Preserva settings.local.json se já existir
+SETTINGS_LOCAL="${TARGET}/.claude/settings.local.json"
+SETTINGS_BACKUP=""
+if [ -f "$SETTINGS_LOCAL" ]; then
+    SETTINGS_BACKUP=$(mktemp)
+    cp "$SETTINGS_LOCAL" "$SETTINGS_BACKUP"
+fi
+
+# Copia .claude/ e scripts
+cp -r "${CACHE_DIR}/.claude" "${TARGET}/"
+cp "${CACHE_DIR}/setup.sh" "${TARGET}/setup.sh"
+cp "${CACHE_DIR}/configure.sh" "${TARGET}/configure.sh"
+cp "${CACHE_DIR}/mutmut.toml" "${TARGET}/mutmut.toml"
+chmod +x "${TARGET}/configure.sh" "${TARGET}/setup.sh"
+
+# Restaura settings.local.json se havia backup
+if [ -n "$SETTINGS_BACKUP" ]; then
+    cp "$SETTINGS_BACKUP" "$SETTINGS_LOCAL"
+    rm -f "$SETTINGS_BACKUP"
+    ok ".claude/settings.local.json preservado"
+fi
+
+# pyproject.toml — não sobrescreve se já existir (pode ter config do projeto)
+if [ ! -f "${TARGET}/pyproject.toml" ]; then
+    cp "${CACHE_DIR}/pyproject.toml" "${TARGET}/pyproject.toml"
+    ok "pyproject.toml copiado"
+else
+    warn "pyproject.toml já existe — não sobrescrito"
+fi
+
+# .gitignore — adiciona entrada para settings.local.json
+GITIGNORE="${TARGET}/.gitignore"
+if [ ! -f "$GITIGNORE" ] || ! grep -q '.claude/settings.local.json' "$GITIGNORE"; then
+    echo ".claude/settings.local.json" >> "$GITIGNORE"
+    ok ".gitignore → .claude/settings.local.json"
+fi
+
+ok "arquivos instalados em ${TARGET}"
+
+# ─── 4. Configura ─────────────────────────────────────────────────────────────
+echo ""
+exec "${TARGET}/configure.sh"

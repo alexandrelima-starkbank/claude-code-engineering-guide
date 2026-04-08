@@ -12,20 +12,13 @@ e slash commands para TDD, revisão de código e mutation testing.
 **Setup:**
 
 ```bash
-# 1. Copie o ambiente para a raiz do seu projeto
-cp -r .claude/ /caminho/do/seu-projeto/
-cp setup.sh configure.sh mutmut.toml pyproject.toml /caminho/do/seu-projeto/
-echo ".claude/settings.local.json" >> /caminho/do/seu-projeto/.gitignore
-
-# 2. Configure e verifique
 cd /caminho/do/seu-projeto
-./configure.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/alexandrelima-starkbank/claude-code-engineering-guide/main/install.sh)
 ```
 
-`configure.sh` detecta automaticamente o contexto (projeto único ou workspace com múltiplos
-serviços), configura `pyproject.toml` e `mutmut.toml` sem perguntas, e chama `setup.sh`
-internamente para instalar dependências e ativar os hooks. Idempotente: re-execute para
-atualizar valores.
+Detecta o contexto (projeto único ou workspace), instala dependências, configura
+`pyproject.toml` e `mutmut.toml` automaticamente e ativa os hooks. Não altera o
+versionamento do diretório de destino. Idempotente: re-execute para atualizar.
 
 A documentação completa do ambiente — hooks, agentes, comandos e skills — está em **[`.claude/README.md`](.claude/README.md)**.
 
