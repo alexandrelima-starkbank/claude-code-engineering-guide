@@ -91,12 +91,38 @@ else
     warn "pyproject.toml já existe — não sobrescrito"
 fi
 
-# .gitignore — adiciona entrada para settings.local.json
-GITIGNORE="${TARGET}/.gitignore"
-if [ ! -f "$GITIGNORE" ] || ! grep -q '.claude/settings.local.json' "$GITIGNORE"; then
-    echo ".claude/settings.local.json" >> "$GITIGNORE"
-    ok ".gitignore → .claude/settings.local.json"
+# CLAUDE.md — não sobrescreve (pode ter config específica do projeto)
+if [ ! -f "${TARGET}/CLAUDE.md" ]; then
+    cp "${CACHE_DIR}/CLAUDE.md" "${TARGET}/CLAUDE.md"
+    ok "CLAUDE.md copiado"
+else
+    warn "CLAUDE.md já existe — não sobrescrito"
 fi
+
+# TASKS.md — não sobrescreve (pode ter tarefas ativas)
+if [ ! -f "${TARGET}/TASKS.md" ]; then
+    cp "${CACHE_DIR}/TASKS.md" "${TARGET}/TASKS.md"
+    ok "TASKS.md criado"
+else
+    ok "TASKS.md já existe"
+fi
+
+# HISTORY_TASKS.md — cria vazio se não existir
+if [ ! -f "${TARGET}/HISTORY_TASKS.md" ]; then
+    printf '# HISTORY_TASKS.md — Histórico de Tarefas Concluídas\n\nRegistro permanente de todas as tarefas concluídas.\n' \
+        > "${TARGET}/HISTORY_TASKS.md"
+    ok "HISTORY_TASKS.md criado"
+fi
+
+# .gitignore — adiciona entradas para arquivos locais
+GITIGNORE="${TARGET}/.gitignore"
+{
+    grep -q '.claude/settings.local.json' "$GITIGNORE" 2>/dev/null || echo ".claude/settings.local.json"
+    grep -q 'TASKS.md' "$GITIGNORE" 2>/dev/null || echo "TASKS.md"
+    grep -q 'HISTORY_TASKS.md' "$GITIGNORE" 2>/dev/null || echo "HISTORY_TASKS.md"
+    grep -q 'CLAUDE.local.md' "$GITIGNORE" 2>/dev/null || echo "CLAUDE.local.md"
+} >> "$GITIGNORE"
+ok ".gitignore atualizado"
 
 ok "arquivos instalados em ${TARGET}"
 
