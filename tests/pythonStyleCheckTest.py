@@ -46,13 +46,13 @@ class ElseBlockTest(TestCase):
         out = run("if x:\n    pass\nelif y:\n    pass\n")
         self.assertEqual("", out)
 
-    def testElse_forElse_detected(self):
+    def testElse_forElse_notFlagged(self):
         out = run("for i in items:\n    pass\nelse:\n    pass\n")
-        self.assertIn("[else]", out)
+        self.assertEqual("", out)
 
-    def testElse_whileElse_detected(self):
+    def testElse_whileElse_notFlagged(self):
         out = run("while condition:\n    pass\nelse:\n    pass\n")
-        self.assertIn("[else]", out)
+        self.assertEqual("", out)
 
 
 class TypeHintTest(TestCase):
@@ -69,6 +69,14 @@ class TypeHintTest(TestCase):
         out = run("def foo(x):\n    return x\n")
         self.assertEqual("", out)
 
+    def testTypeHint_asyncReturnType_detected(self):
+        out = run("async def foo() -> int:\n    return 1\n")
+        self.assertIn("[type hint]", out)
+
+    def testTypeHint_asyncParamType_detected(self):
+        out = run("async def foo(x: str):\n    pass\n")
+        self.assertIn("[type hint]", out)
+
 
 class DocstringTest(TestCase):
 
@@ -80,8 +88,47 @@ class DocstringTest(TestCase):
         out = run('class Foo:\n    """docstring"""\n    pass\n')
         self.assertIn("[docstring]", out)
 
+    def testDocstring_asyncFunction_detected(self):
+        out = run('async def foo():\n    """docstring"""\n    pass\n')
+        self.assertIn("[docstring]", out)
+
     def testDocstring_multilineStringAsValue_notFlagged(self):
         out = run('def foo():\n    query = """\n    SELECT *\n    """\n    return query\n')
+        self.assertEqual("", out)
+
+
+class CamelCaseTest(TestCase):
+
+    def testCamelCase_snakeFunctionName_detected(self):
+        out = run("def my_func():\n    pass\n")
+        self.assertIn("[camelCase]", out)
+
+    def testCamelCase_camelFunctionName_notFlagged(self):
+        out = run("def myFunc():\n    pass\n")
+        self.assertEqual("", out)
+
+    def testCamelCase_snakeParameter_detected(self):
+        out = run("def foo(my_param):\n    pass\n")
+        self.assertIn("[camelCase]", out)
+
+    def testCamelCase_camelParameter_notFlagged(self):
+        out = run("def foo(myParam):\n    pass\n")
+        self.assertEqual("", out)
+
+    def testCamelCase_testMethod_notFlagged(self):
+        out = run("def testFoo_BarScenario():\n    pass\n")
+        self.assertEqual("", out)
+
+    def testCamelCase_dunder_notFlagged(self):
+        out = run("class Foo:\n    def __init__(self):\n        pass\n")
+        self.assertEqual("", out)
+
+    def testCamelCase_privateSnakeFunction_detected(self):
+        out = run("def _my_helper():\n    pass\n")
+        self.assertIn("[camelCase]", out)
+
+    def testCamelCase_privateCamelFunction_notFlagged(self):
+        out = run("def _myHelper():\n    pass\n")
         self.assertEqual("", out)
 
 

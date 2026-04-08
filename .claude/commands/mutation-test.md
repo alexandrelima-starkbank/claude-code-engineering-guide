@@ -30,7 +30,7 @@ Target: **$ARGUMENTS**
    mutmut results
    ```
 
-6. For each surviving mutant, run:
+5. For each surviving mutant, run:
    ```bash
    mutmut show <id>
    ```
@@ -45,7 +45,7 @@ Target: **$ARGUMENTS**
    - Explicar por que o comportamento é idêntico
    - Marcar no código com `# pragma: no mutate — <justificativa>`
 
-5. Output format:
+6. Output format:
    ```
    Score: N killed / M total (X%)
 

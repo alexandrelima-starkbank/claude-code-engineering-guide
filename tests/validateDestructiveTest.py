@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import tempfile
 from unittest import TestCase, main, skipUnless
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -187,6 +188,42 @@ class GitCommitTest(TestCase):
 
     def testGitCommit_withoutCoAuthored_allowed(self):
         self.assertTrue(allowed(run('git commit -m "Add feature"')))
+
+
+@skipUnless(HAS_JQ, "jq not installed")
+class GitCommitFileTest(TestCase):
+
+    def setUp(self):
+        self.tmpfile = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", dir=PROJECT_ROOT, delete=False
+        )
+
+    def tearDown(self):
+        os.unlink(self.tmpfile.name)
+
+    def testGitCommit_dashF_withCoAuthored_blocked(self):
+        self.tmpfile.write("Fix bug\n\nCo-Authored-By: Claude <noreply@anthropic.com>")
+        self.tmpfile.flush()
+        filename = os.path.basename(self.tmpfile.name)
+        self.assertTrue(blocked(run("git commit -F {}".format(filename))))
+
+    def testGitCommit_dashF_withoutCoAuthored_allowed(self):
+        self.tmpfile.write("Fix bug\n\nreviewed by team")
+        self.tmpfile.flush()
+        filename = os.path.basename(self.tmpfile.name)
+        self.assertTrue(allowed(run("git commit -F {}".format(filename))))
+
+    def testGitCommit_fileLong_withCoAuthored_blocked(self):
+        self.tmpfile.write("Fix bug\n\nCo-Authored-By: Claude <noreply@anthropic.com>")
+        self.tmpfile.flush()
+        filename = os.path.basename(self.tmpfile.name)
+        self.assertTrue(blocked(run("git commit --file={}".format(filename))))
+
+    def testGitCommit_fileLong_withoutCoAuthored_allowed(self):
+        self.tmpfile.write("Fix bug\n\nreviewed by team")
+        self.tmpfile.flush()
+        filename = os.path.basename(self.tmpfile.name)
+        self.assertTrue(allowed(run("git commit --file={}".format(filename))))
 
 
 @skipUnless(HAS_JQ, "jq not installed")

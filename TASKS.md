@@ -36,9 +36,12 @@ objetivamente (testes passando, comportamento verificado, arquivo commitado, etc
 
 ### Regra 5 — Nunca Apagar Tarefas Concluídas
 
-Tarefas concluídas NÃO devem ser apagadas. Elas DEVEM ser movidas para a seção
-`## Histórico` ao final deste arquivo. O histórico serve como registro do que foi
-feito e por quê, e DEVE ser preservado indefinidamente.
+Tarefas concluídas NÃO devem ser apagadas. Elas DEVEM ser movidas para `HISTORY_TASKS.md`,
+que fica na mesma pasta que este arquivo. O histórico serve como registro permanente do que
+foi feito e por quê, e DEVE ser preservado indefinidamente.
+
+Este arquivo (`TASKS.md`) contém apenas tarefas ativas. O histórico completo está em
+`HISTORY_TASKS.md`.
 
 ### Regra 6 — Campo Observações
 
@@ -91,29 +94,65 @@ Cada tarefa deve seguir exatamente este formato:
 - **Status:** <pendente | em andamento | bloqueado | concluído>
 - **Descrição:** <o que precisa ser feito e por quê, com contexto suficiente para
   retomar sem ajuda do usuário>
+- **Requisitos EARS:**
+  - WHEN <trigger>, o sistema SHALL <resposta>
+  - IF <trigger>, THEN o sistema SHALL <resposta>
+  *(gerado por /requirements — obrigatório antes de /spec)*
 - **Critério de aceitação:**
   **Cenário: <nome>**
   - Dado: <pré-condições>
   - Quando: <ação>
   - Então: <resultado esperado> → `test<Cenário>_<Condição>`
 
-  *(repetir para cada cenário — caminho feliz, erros, edge cases)*
+  *(repetir para cada cenário — derivado dos Requisitos EARS)*
 - **Observações:** <decisões, bloqueios, dependências, ponto de parada — omitir se vazio>
 ```
 
-O campo **Critério de aceitação** é obrigatório no formato Dado/Quando/Então.
+O campo **Requisitos EARS** é obrigatório e deve ser preenchido antes de `/spec`.
+Use `/requirements <descrição>` para elicitar os requisitos no formato EARS.
+
+O campo **Critério de aceitação** é obrigatório no formato Dado/Quando/Então e deve ser derivado dos Requisitos EARS.
 Cada "Então" deve mapear para exatamente um método de teste (`test<Cenário>_<Condição>`).
 Critérios vagos como "funciona corretamente" não são aceitos.
-Use `/spec <descrição>` para gerar os cenários automaticamente.
+Use `/spec` para gerar os cenários automaticamente a partir dos requisitos.
+Use `/feature <descrição>` para o fluxo completo: requirements → spec → tdd.
+
+---
+
+## Formato de Incidente
+
+Para tarefas originadas de incidentes de produção (N3/N4), usar este formato:
+
+```
+### T<N> — <Título curto descrevendo o comportamento incorreto>
+
+- **Projeto:** <nome do projeto ou componente>
+- **Tipo:** incidente
+- **Severidade:** crítico | alto | médio | baixo
+- **Nível:** N3 | N4
+- **Status:** <pendente | em andamento | bloqueado | concluído>
+- **Comportamento atual:** <o que está acontecendo — sintoma observado>
+- **Comportamento esperado:** <o que deveria acontecer>
+- **Root cause:** <causa raiz identificada (alta | média | baixa confiança) — preenchido pelo N3>
+- **Requisitos EARS:**
+  - IF <condição do bug>, THEN o sistema SHALL <comportamento correto>
+  - WHEN <trigger>, o sistema SHALL <resposta esperada>
+  *(gerado pelo /support na escalação N4)*
+- **Critério de aceitação:**
+  **Cenário: <nome>**
+  - Dado: <pré-condições que ativam o bug>
+  - Quando: <ação>
+  - Então: <comportamento correto> → `test<Cenário>_<Condição>`
+- **Observações:** <evidências da investigação N3, workarounds, decisões — omitir se vazio>
+```
+
+O campo **Root cause** é preenchido durante a investigação N3 (via `/support`).
+O campo **Requisitos EARS** é gerado na escalação N4 e serve de input para `/bugfix`.
+Use `/support <sintoma>` para o ciclo N3 completo.
+Use `/bugfix <título>` para o ciclo N4 a partir do root cause.
 
 ---
 
 ## Tarefas Ativas
 
 _Nenhuma tarefa ativa no momento._
-
----
-
-## Histórico
-
-_Nenhuma tarefa concluída ainda._

@@ -1,6 +1,10 @@
 #!/bin/bash
 # PreToolUse/Bash — bloqueia comandos destrutivos sem confirmação explícita.
-# Nota: validação é baseada em texto (best-effort). Comandos via eval/bash -c não são interceptados.
+# Nota: validação é baseada em texto (best-effort).
+#   - Comandos via eval/bash -c não são interceptados (falso negativo esperado).
+#   - Padrões sem aspas (ex: echo rm -rf /tmp) podem ser bloqueados erroneamente.
+#     Strings com aspas (ex: echo "rm -rf /tmp") não são afetadas pois a aspa não é
+#     reconhecida como separador de palavra pela regex.
 
 if ! command -v jq &>/dev/null; then
     echo "AVISO: jq não encontrado — hook validate-destructive desabilitado. Execute ./setup.sh" >&2
@@ -67,6 +71,16 @@ if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+commit([[:space:]]|$)' 
    echo "$CMD" | grep -qi 'Co-Authored-By'; then
     echo "BLOQUEADO: mensagem de commit não pode conter 'Co-Authored-By'." >&2
     exit 2
+fi
+
+# git commit -F <arquivo> ou --file=<arquivo> com Co-Authored-By no conteúdo
+if echo "$CMD" | grep -qE '(^|[[:space:]])git[[:space:]]+commit([[:space:]]|$)'; then
+    COMMIT_FILE=$(echo "$CMD" | grep -oE '(-F[[:space:]]+[^[:space:];&|]+|--file=[^[:space:];&|]+)' | \
+        sed 's/^-F[[:space:]]*//' | sed 's/^--file=//' | head -1)
+    if [ -n "$COMMIT_FILE" ] && [ -f "$COMMIT_FILE" ] && grep -qi 'Co-Authored-By' "$COMMIT_FILE"; then
+        echo "BLOQUEADO: arquivo '${COMMIT_FILE}' contém 'Co-Authored-By'." >&2
+        exit 2
+    fi
 fi
 
 # DDL destrutivo

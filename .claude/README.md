@@ -42,6 +42,26 @@ Claude sempre sabe quais tarefas estão em andamento sem precisar ler o arquivo.
 
 Degrada silenciosamente se `TASKS.md` não existir.
 
+### `UserPromptSubmit` → `validate-requirements.sh`
+
+Em cada prompt com intenção de implementação, verifica se a tarefa ativa possui
+**Requisitos EARS** preenchidos. Se não tiver, injeta alerta bloqueando geração
+de código e redirecionando para `/requirements`.
+
+Detecta intenção de implementação por palavras-chave (PT e EN): implementar, criar,
+escrever, adicionar, build, write, desenvolver, codificar, etc.
+
+Degrada silenciosamente se `TASKS.md` não existir ou se não houver tarefas em andamento.
+
+### `PreToolUse/Bash` → `pre-commit-gate.sh`
+
+Intercepta qualquer `git commit` e roda a suite de testes antes de permitir.
+Se os testes falharem, o commit é bloqueado com `exit 2`.
+
+Detecta automaticamente a raiz do projeto (pytest.ini, pyproject.toml ou Pipfile)
+e o runner Python disponível (.venv ou python3 do sistema).
+Degrada silenciosamente se nenhum Python for encontrado.
+
 ### `PreToolUse/Bash` → `validate-destructive.sh`
 
 Bloqueia antes de executar:
@@ -95,6 +115,42 @@ ambientes sem `osascript` (Linux/CI).
 
 Instâncias isoladas de Claude com ferramentas e modelo próprios. Úteis para
 tarefas que geram muito output sem poluir o contexto principal.
+
+### `support-investigator` (sonnet)
+
+Investiga incidentes de produção cross-service. Rastreia fluxos de dados, forma no mínimo
+3 hipóteses rankeadas por plausibilidade, coleta evidências para cada uma e determina o
+root cause com nível de confiança (alta/média/baixa).
+
+Invocado pelo `/support` na Fase 2 — não é chamado diretamente pelo usuário.
+Nunca modifica arquivos.
+
+**Output estruturado:**
+- Hipóteses investigadas com evidências (`arquivo:linha`)
+- Root cause com confiança e condição de ativação
+- Commits relevantes (se houver)
+- Recomendação: resolução N3 disponível ou requer N4
+
+---
+
+### `requirements-analyst` (sonnet)
+
+Analisa descrições de features, identifica gaps de informação e valida requisitos
+no formato EARS antes de `/spec`.
+
+Para cada análise reporta:
+- **GAPS IDENTIFICADOS**: o que está faltando e perguntas objetivas para elicitar
+- **REQUISITOS EARS**: ubíquos, orientados a evento, orientados a estado, comportamentos indesejados, features opcionais
+- **AVALIAÇÃO**: completo, ambíguos, não-testáveis
+
+Não escreve código, spec ou testes.
+
+**Como usar:**
+```
+Use the requirements-analyst agent to analyze: sistema de rate limiting por usuário
+```
+
+---
 
 ### `tasks-maintainer` (haiku)
 
@@ -155,10 +211,29 @@ Use the test-runner agent to check if the tests pass
 
 Invocados com `/nome` no prompt do Claude Code.
 
+### `/requirements <descrição>`
+
+Elicita e documenta requisitos no formato **EARS** (Easy Approach to Requirements Syntax).
+Produz requisitos sem ambiguidade, testáveis e aprovados pelo usuário antes de qualquer
+spec ou código.
+
+Processo: lê contexto do projeto → identifica gaps → elicita informações faltantes →
+gera requisitos nos 5 padrões EARS → valida completude → aguarda aprovação → registra em TASKS.md.
+
+Não gera spec, testes ou código.
+
+```
+/requirements endpoint de criação de item com validação de duplicatas
+/requirements sistema de rate limiting por usuário autenticado
+```
+
 ### `/spec <descrição>`
 
 Gera critérios de aceite no formato Dado/Quando/Então para uma funcionalidade.
 Cada "Então" mapeia para exatamente um método de teste (`test<Cenário>_<Condição>`).
+
+Quando chamado após `/requirements`, deriva os cenários dos requisitos EARS aprovados
+mantendo rastreabilidade entre requisito e cenário.
 
 Cobre: caminho feliz, inputs inválidos, valores de fronteira, erros esperados,
 edge cases de autorização.
@@ -235,9 +310,87 @@ e sugestão de fix — sem implementar.
 
 Skills são workflows multi-fase com pontos de verificação explícitos.
 
+### `/support`
+
+Ciclo N3 completo para incidentes de produção em 4 fases:
+
+| Fase | O que acontece |
+|------|----------------|
+| 1. Intake | Coleta estruturada do incidente (sintoma, impacto, timeline) |
+| 2. Investigação | Invoca `support-investigator` para análise cross-service |
+| 3. Gate | Apresenta root cause — decide N3-fix ou escalação N4 |
+| 4a. Resolução N3 | Documenta workaround/rollback, fecha como concluído |
+| 4b. Escalação N4 | Gera EARS do bug, registra em TASKS.md, indica `/bugfix` |
+
+```
+/support pagamentos falhando para cartões pré-pagos desde 14h
+/support saldo não atualiza após pagamento de fatura
+```
+
+### `/bugfix`
+
+Ciclo N4 completo para correção de bugs em 7 fases. A ordem é fixa:
+**reproduzir antes de corrigir** — o teste de regressão deve falhar antes da implementação.
+
+| Fase | O que acontece |
+|------|----------------|
+| 0. Root cause | Lê escalação do `/support` ou coleta diretamente |
+| 1. Regressão | Escreve teste que **reproduz o bug e falha** |
+| 2. EARS | Requisitos do fix (lê de TASKS.md ou deriva do root cause) |
+| 3. Spec | Given/When/Then derivado dos EARS |
+| 4. Implementação | Código mínimo para o teste de regressão passar |
+| 5. Mutação | `mutmut` — 100% exigido |
+| 6. Blast radius | `/blast-radius` antes do merge |
+| 7. Checklist | Rastreabilidade, convenções, commit |
+
+```
+/bugfix T12 — saldo não atualiza após pagamento de fatura
+/bugfix validação de duplicata falhando no endpoint de criação
+```
+
+### `/verify-delivery`
+
+Checklist pré-merge em 6 passos. Obrigatório antes de declarar qualquer tarefa concluída.
+
+| Passo | O que verifica |
+|-------|----------------|
+| 1. Mudanças | `git diff --name-only` |
+| 2. Convenções | `verify.py --git` — f-strings, else, naming, trailing comma, forbidden files |
+| 3. Estrutura | Arquitetura, padrões, cross-service (julgamento) |
+| 4. Testes | Suite completa + cobertura de novos comportamentos |
+| 5. Cobertura | `--cov` conforme configuração do projeto |
+| 6. Git hygiene | Mensagem de commit, arquivos proibidos, nome do branch |
+
+Saída: `READY` ou `NOT READY` — nunca `READY` com qualquer check falhando.
+
+```
+/verify-delivery
+```
+
+### `/feature`
+
+Workflow end-to-end para features novas em 5 fases, com rastreabilidade total:
+
+| Fase | O que acontece |
+|------|----------------|
+| 0. Requirements | Requisitos EARS (aguarda aprovação) |
+| 1. Spec | Deriva Given/When/Then dos requisitos (aguarda aprovação) |
+| 2. Testes | Escreve testes que **devem falhar** |
+| 3. Implementação | Código mínimo para passar os testes |
+| 4. Mutação | `mutmut` — 100% exigido |
+| 5. Checklist | Verifica convenções e rastreabilidade |
+
+Use `/feature` como ponto de entrada para qualquer feature nova.
+Use `/tdd` quando requisitos e spec já existem e aprovados.
+
+```
+/feature endpoint de criação de item com validação de duplicatas
+```
+
 ### `/tdd`
 
-Workflow TDD completo em 5 fases:
+Workflow TDD completo em 5 fases. Assume que requisitos EARS e spec já existem
+e foram aprovados — inicia diretamente na geração de critérios de aceite.
 
 | Fase | O que acontece |
 |------|----------------|
@@ -282,14 +435,33 @@ skill `/cross-service-analysis` operam sem contexto da plataforma.
 
 ## Instalação
 
-Execute o script de setup na raiz do projeto:
+### 1. Instalar dependências
 
 ```bash
 ./setup.sh
 ```
 
-O script verifica e instala as dependências, torna os hooks executáveis e
-reporta o que está faltando. É idempotente — pode rodar múltiplas vezes.
+Verifica e instala as dependências, torna os hooks executáveis e reporta o que
+está faltando. É idempotente — pode rodar múltiplas vezes.
+
+### 2. Configurar o projeto
+
+```bash
+./configure.sh
+```
+
+Script interativo que preenche os placeholders nos arquivos de configuração.
+Faz 4 perguntas:
+
+| Pergunta | Arquivo | Campo |
+|----------|---------|-------|
+| Pacotes locais do projeto | `pyproject.toml` | `known-first-party` |
+| Diretório do código-fonte | `mutmut.toml` | `paths_to_mutate` |
+| Diretório de testes | `mutmut.toml` | `tests_dir` |
+| Serviços da plataforma (opcional) | `SERVICE_MAP.md` | serviços e diretórios |
+
+Idempotente — ao re-executar, mostra o valor atual e permite manter ou sobrescrever.
+Ao finalizar, executa `./setup.sh` automaticamente para confirmar que a configuração passou.
 
 ### Dependências
 
@@ -311,12 +483,11 @@ Para usar este ambiente em outro projeto:
 
 ```bash
 cp -r .claude/ /caminho/do/seu-projeto/
-cp setup.sh /caminho/do/seu-projeto/
-cp mutmut.toml /caminho/do/seu-projeto/
-cp pyproject.toml /caminho/do/seu-projeto/
+cp setup.sh configure.sh mutmut.toml pyproject.toml /caminho/do/seu-projeto/
 echo ".claude/settings.local.json" >> /caminho/do/seu-projeto/.gitignore
-cd /caminho/do/seu-projeto && ./setup.sh
+cd /caminho/do/seu-projeto
+./setup.sh
+./configure.sh
 ```
 
 Os hooks usam caminhos relativos e funcionam de qualquer projeto.
-Ajuste `mutmut.toml` para apontar para os seus diretórios de código e testes.

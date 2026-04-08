@@ -6,7 +6,10 @@ allowed-tools: Read, Grep, Glob, Bash
 
 1. Restate the problem — expected behavior vs. actual behavior
 
-2. Read `.claude/skills/cross-service-analysis/SERVICE_MAP.md` to understand the service dependency graph and the data flow path relevant to this bug
+2. Read `.claude/skills/cross-service-analysis/SERVICE_MAP.md`.
+   - The file is **not configured** if it does not exist or if the `## Diretórios dos Serviços` section still contains `<diretório-do-service-` placeholder paths.
+   - If not configured: restrict the investigation to the current repository and note in the output: `SERVICE_MAP not configured — investigation limited to current repository. Run ./configure.sh to enable cross-service tracing.`
+   - If configured: use the dependency graph and pipeline in `## Pipeline de Autorização` to trace the data flow.
 
 3. Grep across all service directories for code paths related to the problem:
    - Entry point (API handler, queue consumer, cron)

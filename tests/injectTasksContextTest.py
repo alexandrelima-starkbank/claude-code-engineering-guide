@@ -70,12 +70,12 @@ _Nenhuma tarefa concluída ainda._
 """
 
 
-def run(tasks_content):
+def run(tasksContent):
     with tempfile.TemporaryDirectory() as tmpdir:
         subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
         tasks_path = os.path.join(tmpdir, "TASKS.md")
         with open(tasks_path, "w", encoding="utf-8") as f:
-            f.write(tasks_content)
+            f.write(tasksContent)
 
         payload = json.dumps({"prompt": "test"})
         result = subprocess.run(

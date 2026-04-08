@@ -17,7 +17,13 @@ Read [SERVICE_MAP.md](SERVICE_MAP.md) to understand:
 - Shared contracts (enums, queue messages, API schemas)
 - Deployment rules for your platform
 
-If SERVICE_MAP.md still has placeholder values, stop and ask the team to fill it in before proceeding.
+**To check if SERVICE_MAP is configured:** look at the `## Diretórios dos Serviços` section. If it still contains `<diretório-do-service-` placeholder paths, the file is not configured.
+
+**If SERVICE_MAP.md is not configured:**
+- Do NOT stop. Degrade gracefully.
+- Restrict the analysis to the current repository only.
+- In the output, add a note: `SERVICE_MAP not configured — analysis limited to current repository. Run ./configure.sh to enable cross-service analysis.`
+- Omit the DEPLOYMENT ORDER section (no cross-service deploy reasoning is possible without the map).
 
 ---
 
@@ -54,7 +60,9 @@ For every hit, determine:
 
 ### 4. Determine deployment sequence
 
-Apply the rules from SERVICE_MAP.md. Default rules:
+**Skip this step if SERVICE_MAP is not configured** (single-repo mode). Omit the DEPLOYMENT ORDER block from the output entirely.
+
+Apply the rules from `## Regras de Deploy` in SERVICE_MAP.md. Default rules:
 - Consumers of a new field deploy **before** the producer starts sending it
 - If removing a field: producer stops sending **before** consumers stop expecting it
 - Enum additions: all consumers must handle the new value before producer sends it
@@ -72,7 +80,7 @@ AFFECTED SERVICES:
     Usage: <how it uses the target>
     Break risk: <what happens without update>
 
-DEPLOYMENT ORDER:
+DEPLOYMENT ORDER:          ← omit if single-repo mode
   1. <service> — <reason>
   2. <service> — <reason>
 

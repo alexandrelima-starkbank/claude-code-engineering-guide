@@ -37,6 +37,8 @@ check_file() {
         if [ $? -ne 0 ]; then
             VIOLATIONS="${VIOLATIONS}\n[shellcheck] ${FILE}\n${SC}"
         fi
+    else
+        echo "AVISO: shellcheck não instalado — análise estática de '${FILE}' desabilitada. Execute ./setup.sh" >&2
     fi
 }
 

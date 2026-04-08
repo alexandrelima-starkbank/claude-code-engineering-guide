@@ -30,10 +30,18 @@ echo "   em três grupos: stdlib → dependências externas → código do proje
 echo ""
 
 CURRENT_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/.*= //' | tr -d ' ')
-if [ "$CURRENT_KFP" != "[]" ] && [ -n "$CURRENT_KFP" ]; then
-    ask "   Valor atual: ${CURRENT_KFP}"
-    ask "   Novo valor (Enter para manter): "
-    read -r INPUT_KFP
+INPUT_KFP=""
+
+if [ -n "$CURRENT_KFP" ] && [ "$CURRENT_KFP" != "[]" ]; then
+    ask "   Já configurado: ${CURRENT_KFP}"
+    ask "   Alterar? (s/N): "
+    read -r CHANGE_KFP
+    if [[ "$CHANGE_KFP" =~ ^[sS]$ ]]; then
+        ask "   Novo valor (separados por vírgula): "
+        read -r INPUT_KFP
+    else
+        ok "pyproject.toml → mantido (${CURRENT_KFP})"
+    fi
 else
     ask "   Exemplos: myapp, myapp_utils, core"
     ask "   Pacotes (separados por vírgula): "
@@ -46,9 +54,12 @@ if [ -n "$INPUT_KFP" ]; then
     FORMATTED="[\"${FORMATTED}\"]"
     sed -i.bak "s|known-first-party = .*|known-first-party = ${FORMATTED}|" pyproject.toml
     rm -f pyproject.toml.bak
-    ok "pyproject.toml → known-first-party = ${FORMATTED}"
-else
-    ok "pyproject.toml → mantido (${CURRENT_KFP})"
+    VERIFY_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/.*= //' | tr -d ' ')
+    if [ "$VERIFY_KFP" = "$FORMATTED" ]; then
+        ok "pyproject.toml → known-first-party = ${FORMATTED}"
+    else
+        warn "pyproject.toml → substituição pode ter falhado — verifique o arquivo manualmente"
+    fi
 fi
 
 echo ""
@@ -59,22 +70,39 @@ echo "   mutmut precisa saber onde está o código a ser mutado."
 echo ""
 
 CURRENT_PTM=$(grep -v '^#' mutmut.toml 2>/dev/null | grep 'paths_to_mutate' | sed 's/.*= //' | tr -d '"')
-ask "   Valor atual: ${CURRENT_PTM}"
-ask "   Exemplos: src/, myapp/, handlers/"
-ask "   Caminho (Enter para manter): "
-read -r INPUT_PTM
+INPUT_PTM=""
 
-if [ -n "$INPUT_PTM" ]; then
-    # Normaliza: garante barra no final
+if [ -n "$CURRENT_PTM" ] && [ "$CURRENT_PTM" != "src/" ]; then
+    ask "   Já configurado: ${CURRENT_PTM}"
+    ask "   Alterar? (s/N): "
+    read -r CHANGE_PTM
+    if [[ "$CHANGE_PTM" =~ ^[sS]$ ]]; then
+        ask "   Novo caminho: "
+        read -r INPUT_PTM
+    else
+        ok "mutmut.toml → mantido (${CURRENT_PTM})"
+        INPUT_PTM="$CURRENT_PTM"
+    fi
+else
+    ask "   Exemplos: src/, myapp/, handlers/"
+    ask "   Caminho: "
+    read -r INPUT_PTM
+fi
+
+if [ -n "$INPUT_PTM" ] && [ "$INPUT_PTM" != "$CURRENT_PTM" ]; then
     INPUT_PTM="${INPUT_PTM%/}/"
     if [ ! -d "$INPUT_PTM" ]; then
         warn "   Diretório '${INPUT_PTM}' não existe — configurando mesmo assim."
     fi
     sed -i.bak "s|paths_to_mutate = .*|paths_to_mutate = \"${INPUT_PTM}\"|" mutmut.toml
     rm -f mutmut.toml.bak
-    ok "mutmut.toml → paths_to_mutate = \"${INPUT_PTM}\""
+    VERIFY_PTM=$(grep -v '^#' mutmut.toml 2>/dev/null | grep 'paths_to_mutate' | sed 's/.*= //' | tr -d '"')
+    if [ "$VERIFY_PTM" = "$INPUT_PTM" ]; then
+        ok "mutmut.toml → paths_to_mutate = \"${INPUT_PTM}\""
+    else
+        warn "mutmut.toml → substituição pode ter falhado — verifique o arquivo manualmente"
+    fi
 else
-    ok "mutmut.toml → mantido (${CURRENT_PTM})"
     INPUT_PTM="$CURRENT_PTM"
 fi
 
@@ -85,9 +113,23 @@ info "3/4 — Diretório de testes (mutmut)"
 echo ""
 
 CURRENT_TD=$(grep -v '^#' mutmut.toml 2>/dev/null | grep 'tests_dir' | sed 's/.*= //' | tr -d '"')
-ask "   Valor atual: ${CURRENT_TD}"
-ask "   Diretório de testes (Enter para manter): "
-read -r INPUT_TD
+INPUT_TD=""
+
+if [ -n "$CURRENT_TD" ] && [ "$CURRENT_TD" != "tests/" ]; then
+    ask "   Já configurado: ${CURRENT_TD}"
+    ask "   Alterar? (s/N): "
+    read -r CHANGE_TD
+    if [[ "$CHANGE_TD" =~ ^[sS]$ ]]; then
+        ask "   Novo diretório: "
+        read -r INPUT_TD
+    else
+        ok "mutmut.toml → mantido (${CURRENT_TD})"
+    fi
+else
+    ask "   Exemplos: tests/, test/, spec/"
+    ask "   Diretório de testes: "
+    read -r INPUT_TD
+fi
 
 if [ -n "$INPUT_TD" ]; then
     INPUT_TD="${INPUT_TD%/}/"
@@ -96,9 +138,12 @@ if [ -n "$INPUT_TD" ]; then
     fi
     sed -i.bak "s|tests_dir = .*|tests_dir = \"${INPUT_TD}\"|" mutmut.toml
     rm -f mutmut.toml.bak
-    ok "mutmut.toml → tests_dir = \"${INPUT_TD}\""
-else
-    ok "mutmut.toml → mantido (${CURRENT_TD})"
+    VERIFY_TD=$(grep -v '^#' mutmut.toml 2>/dev/null | grep 'tests_dir' | sed 's/.*= //' | tr -d '"')
+    if [ "$VERIFY_TD" = "$INPUT_TD" ]; then
+        ok "mutmut.toml → tests_dir = \"${INPUT_TD}\""
+    else
+        warn "mutmut.toml → substituição pode ter falhado — verifique o arquivo manualmente"
+    fi
 fi
 
 echo ""
@@ -108,6 +153,27 @@ info "4/4 — Serviços da plataforma (SERVICE_MAP.md)"
 echo "   Necessário apenas para projetos com múltiplos serviços."
 echo "   Habilita /blast-radius, /investigate e /cross-service-analysis."
 echo ""
+
+SKIP_SERVICE_MAP=0
+
+# Detecta se seção 4 já foi respondida (marcador presente em qualquer variante)
+if [ -f "$SERVICE_MAP" ] && grep -q 'configure\.sh' "$SERVICE_MAP"; then
+    if grep -q 'single-service' "$SERVICE_MAP"; then
+        echo "   Configurado como: single-service"
+    else
+        echo "   SERVICE_MAP.md já configurado. Serviços atuais:"
+        awk '/^## Diretórios dos Serviços/{found=1; next} /^(##|---)/{found=0} found && /^- /' "$SERVICE_MAP" | sed 's/^/   /'
+    fi
+    echo ""
+    ask "   Reconfigurar do zero? (s/N): "
+    read -r RECONFIG
+    if [[ ! "$RECONFIG" =~ ^[sS]$ ]]; then
+        ok "SERVICE_MAP.md → mantido sem alteração"
+        SKIP_SERVICE_MAP=1
+    fi
+fi
+
+if [ "$SKIP_SERVICE_MAP" -eq 0 ]; then
 
 ask "   Este projeto tem múltiplos serviços? (s/N): "
 read -r IS_MULTI
@@ -213,8 +279,13 @@ MAPEOF
         ok "SERVICE_MAP.md → mantido sem alteração"
     fi
 else
-    ok "SERVICE_MAP.md → não configurado (projeto single-service)"
+    # Grava marcador para garantir idempotência em re-execuções
+    sed -i.bak "1s|^|<!-- configure.sh: single-service -->\n\n|" "$SERVICE_MAP"
+    rm -f "${SERVICE_MAP}.bak"
+    ok "SERVICE_MAP.md → marcado como single-service (não será perguntado novamente)"
 fi
+
+fi # SKIP_SERVICE_MAP
 
 echo ""
 echo "────────────────────────────────────────"
@@ -232,4 +303,4 @@ echo ""
 
 echo "Verificando com setup.sh..."
 echo ""
-bash "$(dirname "$0")/setup.sh"
+bash "${CONFIGURE_SETUP_SH:-"$(dirname "$0")/setup.sh"}"

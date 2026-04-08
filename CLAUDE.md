@@ -13,7 +13,8 @@ de desenvolvimento pronto para uso (hooks, agentes, slash commands).
 ```
 claude-code-engineering-guide/
 ├── README.md          # O guia principal
-├── setup.sh           # Instala dependências e configura o ambiente
+├── setup.sh           # Instala dependências e torna hooks executáveis
+├── configure.sh       # Configura valores do projeto (interativo, pós-setup)
 ├── .claude/           # Ambiente Claude Code (hooks, agents, commands, skills)
 └── CLAUDE.md          # Este arquivo
 ```
@@ -23,11 +24,17 @@ claude-code-engineering-guide/
 ## Setup
 
 ```bash
-./setup.sh
+./setup.sh      # instala dependências e torna hooks executáveis
+./configure.sh  # configura pacotes, diretórios e serviços (interativo)
 ```
 
-Verifica e instala dependências (`jq`, `python3`), torna hooks executáveis.
 Veja `.claude/README.md` para documentação completa do ambiente.
+
+---
+
+## Catálogo de Capacidades
+
+@.claude/CATALOG.md
 
 ---
 
