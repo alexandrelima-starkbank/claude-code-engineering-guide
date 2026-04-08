@@ -17,20 +17,15 @@ cp -r .claude/ /caminho/do/seu-projeto/
 cp setup.sh configure.sh mutmut.toml pyproject.toml /caminho/do/seu-projeto/
 echo ".claude/settings.local.json" >> /caminho/do/seu-projeto/.gitignore
 
-# 2. Instale dependências
+# 2. Configure e verifique
 cd /caminho/do/seu-projeto
-./setup.sh
-
-# 3. Configure os valores do projeto (interativo)
 ./configure.sh
-
-# 4. Verifique que tudo passou
-./setup.sh
 ```
 
-`configure.sh` faz perguntas sobre: pacotes locais (isort), diretório do código (mutmut),
-diretório de testes (mutmut) e — opcionalmente — os serviços da plataforma para análise
-cross-service. Idempotente: re-execute para atualizar valores.
+`configure.sh` detecta automaticamente o contexto (projeto único ou workspace com múltiplos
+serviços), configura `pyproject.toml` e `mutmut.toml` sem perguntas, e chama `setup.sh`
+internamente para instalar dependências e ativar os hooks. Idempotente: re-execute para
+atualizar valores.
 
 A documentação completa do ambiente — hooks, agentes, comandos e skills — está em **[`.claude/README.md`](.claude/README.md)**.
 

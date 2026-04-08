@@ -1,9 +1,9 @@
 #!/bin/bash
-# configure.sh — configura o ecossistema Claude Code para este projeto.
+# configure.sh — ponto de entrada único do ecossistema Claude Code.
 # Detecta automaticamente se está num workspace (múltiplos serviços) ou
 # num projeto Python único e age de forma diferente em cada caso.
+# Chama setup.sh internamente para instalar dependências e permissões.
 # Idempotente: pode rodar múltiplas vezes sem efeitos colaterais.
-# Rode após ./setup.sh.
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -373,6 +373,9 @@ MAPEOF
     echo ""
     echo "  Workspace com ${SVC_COUNT:-0} serviços configurados."
     echo ""
+    echo "Verificando com setup.sh..."
+    echo ""
+    bash "${CONFIGURE_SETUP_SH:-"$(dirname "$0")/setup.sh"}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MODO PROJETO ÚNICO
