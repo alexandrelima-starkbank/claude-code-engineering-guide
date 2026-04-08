@@ -278,15 +278,100 @@ MAPEOF
             "$SERVICE_MAP" | wc -l | tr -d ' ')
     fi
 
+    # ─── Configurar pyproject.toml e mutmut.toml por serviço ─────────────────
     echo ""
+    info "Configurando serviços"
+    echo ""
+
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    PYPROJECT_TMPL="${SCRIPT_DIR}/pyproject.toml"
+    MUTMUT_TMPL="${SCRIPT_DIR}/mutmut.toml"
+
+    while IFS= read -r svc_line; do
+        SVC=$(echo "$svc_line" | sed 's/^- \([^:]*\):.*/\1/' | sed 's/[[:space:]]*$//')
+        DIR=$(echo "$svc_line" | sed 's/^- [^:]*: *//' | sed 's/[[:space:]]*$//')
+        DIR="${DIR/#\~/$HOME}"
+
+        [ -z "$SVC" ] || [ -z "$DIR" ] && continue
+
+        echo -e "  ${BOLD}${SVC}${NC}"
+
+        if [ ! -d "$DIR" ]; then
+            warn "    diretório não encontrado: ${DIR} — pulando"
+            echo ""
+            continue
+        fi
+
+        # Copia templates se ausentes
+        [ ! -f "${DIR}/pyproject.toml" ] && [ -f "$PYPROJECT_TMPL" ] && \
+            cp "$PYPROJECT_TMPL" "${DIR}/pyproject.toml"
+        [ ! -f "${DIR}/mutmut.toml" ] && [ -f "$MUTMUT_TMPL" ] && \
+            cp "$MUTMUT_TMPL" "${DIR}/mutmut.toml"
+
+        # Detecta pacotes Python do serviço
+        PKGS=$(find "$DIR" -maxdepth 2 -name '__init__.py' \
+            ! -path '*/.venv/*' ! -path '*/venv/*' ! -path '*/.git/*' \
+            ! -path '*/tests/*' ! -path '*/test/*' ! -path '*/spec/*' \
+            2>/dev/null \
+            | sed "s|^${DIR}/||" | sed 's|/__init__.py$||' | sort -u)
+
+        # pyproject.toml — known-first-party
+        if [ -f "${DIR}/pyproject.toml" ]; then
+            if grep "${DIR}/pyproject.toml" 2>/dev/null | sed 's/#.*//' | grep -q '\[\]' \
+               || grep 'known-first-party' "${DIR}/pyproject.toml" | sed 's/#.*//' | grep -q '\[\]'; then
+                if [ -n "$PKGS" ]; then
+                    PKGS_CSV=$(echo "$PKGS" | tr '\n' ',' | sed 's/,$//')
+                    FORMATTED=$(echo "$PKGS_CSV" | sed 's/,/", "/g')
+                    FORMATTED="[\"${FORMATTED}\"]"
+                    sed -i.bak "s|known-first-party = .*|known-first-party = ${FORMATTED}|" "${DIR}/pyproject.toml"
+                    rm -f "${DIR}/pyproject.toml.bak"
+                    ok "    pyproject.toml → known-first-party = ${FORMATTED}"
+                else
+                    warn "    pyproject.toml → nenhum pacote detectado em ${DIR}"
+                fi
+            else
+                KFP=$(grep 'known-first-party' "${DIR}/pyproject.toml" | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
+                ok "    pyproject.toml → known-first-party = ${KFP} (já configurado)"
+            fi
+        fi
+
+        # mutmut.toml — paths_to_mutate e tests_dir
+        if [ -f "${DIR}/mutmut.toml" ]; then
+            if grep -v '^#' "${DIR}/mutmut.toml" | grep 'paths_to_mutate' | grep -q '"src/"'; then
+                if [ -n "$PKGS" ]; then
+                    PTM=$(echo "$PKGS" | tr '\n' ',' | sed 's/,$//')
+                    sed -i.bak "s|paths_to_mutate = .*|paths_to_mutate = \"${PTM}\"|" "${DIR}/mutmut.toml"
+                    rm -f "${DIR}/mutmut.toml.bak"
+                    ok "    mutmut.toml → paths_to_mutate = \"${PTM}\""
+                fi
+            else
+                PTM=$(grep -v '^#' "${DIR}/mutmut.toml" | grep 'paths_to_mutate' | sed 's/.*= //' | tr -d '"')
+                ok "    mutmut.toml → paths_to_mutate = ${PTM} (já configurado)"
+            fi
+
+            TESTS=""
+            for d in tests test spec; do
+                [ -d "${DIR}/${d}" ] && TESTS="${d}/" && break
+            done
+            if [ -n "$TESTS" ]; then
+                CURRENT_TD=$(grep -v '^#' "${DIR}/mutmut.toml" | grep 'tests_dir' | sed 's/.*= //' | tr -d '"')
+                if [ "$TESTS" != "$CURRENT_TD" ]; then
+                    sed -i.bak "s|tests_dir = .*|tests_dir = \"${TESTS}\"|" "${DIR}/mutmut.toml"
+                    rm -f "${DIR}/mutmut.toml.bak"
+                    ok "    mutmut.toml → tests_dir = \"${TESTS}\""
+                else
+                    ok "    mutmut.toml → tests_dir = \"${TESTS}\" (já configurado)"
+                fi
+            fi
+        fi
+
+        echo ""
+    done < <(awk '/^## Diretórios dos Serviços/{found=1; next} /^(##|---)/{found=0} found && /^- /' "$SERVICE_MAP")
+
     echo "────────────────────────────────────────"
     echo -e "${BOLD}Resumo${NC}"
     echo ""
-    echo "  Workspace com ${SVC_COUNT:-0} serviços configurados em SERVICE_MAP.md"
-    echo ""
-    echo "  pyproject.toml e mutmut.toml são configurados por serviço."
-    echo "  Copie setup.sh, configure.sh, pyproject.toml e mutmut.toml para"
-    echo "  cada serviço e rode ./setup.sh && ./configure.sh dentro dele."
+    echo "  Workspace com ${SVC_COUNT:-0} serviços configurados."
     echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
