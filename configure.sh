@@ -29,7 +29,7 @@ echo "   isort precisa saber quais pacotes são locais para separar os imports"
 echo "   em três grupos: stdlib → dependências externas → código do projeto."
 echo ""
 
-CURRENT_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/.*= //' | tr -d ' ')
+CURRENT_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
 INPUT_KFP=""
 
 if [ -n "$CURRENT_KFP" ] && [ "$CURRENT_KFP" != "[]" ]; then
@@ -103,6 +103,10 @@ if [ -n "$INPUT_PTM" ] && [ "$INPUT_PTM" != "$CURRENT_PTM" ]; then
         warn "mutmut.toml → substituição pode ter falhado — verifique o arquivo manualmente"
     fi
 else
+    if [ -z "$INPUT_PTM" ] && [ "$CURRENT_PTM" = "src/" ]; then
+        warn "   Nenhum valor informado — paths_to_mutate continuará como placeholder (src/)"
+        warn "   setup.sh reportará erro — reconfigure com ./configure.sh"
+    fi
     INPUT_PTM="$CURRENT_PTM"
 fi
 
