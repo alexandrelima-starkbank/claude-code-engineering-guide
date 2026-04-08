@@ -272,13 +272,21 @@ MAPEOF
         fi
     fi
 
+    # Conta serviços do SERVICE_MAP se não foi gerado agora
+    if [ -z "$SVC_COUNT" ] && [ -f "$SERVICE_MAP" ]; then
+        SVC_COUNT=$(awk '/^## Diretórios dos Serviços/{found=1; next} /^(##|---)/{found=0} found && /^- /' \
+            "$SERVICE_MAP" | wc -l | tr -d ' ')
+    fi
+
     echo ""
     echo "────────────────────────────────────────"
     echo -e "${BOLD}Resumo${NC}"
     echo ""
-    echo "  Workspace com ${SVC_COUNT:-?} serviços configurados em SERVICE_MAP.md"
-    echo "  Para configurar pyproject.toml e mutmut.toml de cada serviço:"
-    echo "    cd <serviço> && ../configure.sh"
+    echo "  Workspace com ${SVC_COUNT:-0} serviços configurados em SERVICE_MAP.md"
+    echo ""
+    echo "  pyproject.toml e mutmut.toml são configurados por serviço."
+    echo "  Copie setup.sh, configure.sh, pyproject.toml e mutmut.toml para"
+    echo "  cada serviço e rode ./setup.sh && ./configure.sh dentro dele."
     echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
