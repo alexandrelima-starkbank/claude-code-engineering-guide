@@ -116,10 +116,9 @@ else
 fi
 
 # ─── pyproject.toml — known-first-party ──────────────────────────────────────
-if [ -f "pyproject.toml" ] && grep -q 'known-first-party = \[\]' pyproject.toml; then
+if [ -f "pyproject.toml" ] && grep 'known-first-party' pyproject.toml | sed 's/#.*//' | grep -q '\[\]'; then
     fail "pyproject.toml: known-first-party está vazio"
-    warn "  → Execute ./configure.sh para configurar interativamente"
-    warn "  → Ou edite pyproject.toml: known-first-party = [\"nome_do_seu_pacote\"]"
+    warn "  → Execute ./configure.sh — detecta pacotes automaticamente"
 fi
 
 # ─── mutmut ───────────────────────────────────────────────────────────────────
