@@ -317,8 +317,7 @@ MAPEOF
 
         # pyproject.toml — known-first-party
         if [ -f "${DIR}/pyproject.toml" ]; then
-            if grep "${DIR}/pyproject.toml" 2>/dev/null | sed 's/#.*//' | grep -q '\[\]' \
-               || grep 'known-first-party' "${DIR}/pyproject.toml" | sed 's/#.*//' | grep -q '\[\]'; then
+            if grep 'known-first-party' "${DIR}/pyproject.toml" 2>/dev/null | sed 's/#.*//' | grep -q '\[\]'; then
                 if [ -n "$PKGS" ]; then
                     PKGS_CSV=$(echo "$PKGS" | tr '\n' ',' | sed 's/,$//')
                     FORMATTED=$(echo "$PKGS_CSV" | sed 's/,/", "/g')

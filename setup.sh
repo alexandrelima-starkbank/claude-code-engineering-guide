@@ -116,10 +116,20 @@ else
 fi
 
 # ─── pyproject.toml — known-first-party ──────────────────────────────────────
-# Só relevante em projetos únicos (workspaces não têm pyproject.toml na raiz)
-if [ -f "pyproject.toml" ] && grep 'known-first-party' pyproject.toml | sed 's/#.*//' | grep -q '\[\]'; then
-    fail "pyproject.toml: known-first-party está vazio"
-    warn "  → Execute ./configure.sh — detecta pacotes automaticamente"
+# Ignorado em workspace: pyproject.toml na raiz é irrelevante quando há sub-repos.
+IS_WORKSPACE=0
+for _d in */; do
+    [ -d "$_d" ] || continue
+    [[ "${_d%/}" == .* ]] && continue
+    find "$_d" -maxdepth 3 -name '__init__.py' ! -path '*/.venv/*' 2>/dev/null | grep -q . && IS_WORKSPACE=$((IS_WORKSPACE + 1))
+    [ "$IS_WORKSPACE" -gt 1 ] && break
+done
+
+if [ "$IS_WORKSPACE" -le 1 ]; then
+    if [ -f "pyproject.toml" ] && grep 'known-first-party' pyproject.toml | sed 's/#.*//' | grep -q '\[\]'; then
+        fail "pyproject.toml: known-first-party está vazio"
+        warn "  → Execute ./configure.sh — detecta pacotes automaticamente"
+    fi
 fi
 
 # ─── mutmut ───────────────────────────────────────────────────────────────────
@@ -136,10 +146,12 @@ else
 fi
 
 # ─── mutmut.toml — paths_to_mutate ───────────────────────────────────────────
-# Só relevante em projetos únicos (workspaces não têm mutmut.toml na raiz)
-if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
-    fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
-    warn "  → Execute ./configure.sh — detecta diretório automaticamente"
+# Ignorado em workspace: mutmut.toml na raiz é irrelevante quando há sub-repos.
+if [ "$IS_WORKSPACE" -le 1 ]; then
+    if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
+        fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
+        warn "  → Execute ./configure.sh — detecta diretório automaticamente"
+    fi
 fi
 
 # ─── osascript ────────────────────────────────────────────────────────────────
