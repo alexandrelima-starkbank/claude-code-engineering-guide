@@ -93,8 +93,8 @@ fi
 
 # CLAUDE.md — não sobrescreve (pode ter config específica do projeto)
 if [ ! -f "${TARGET}/CLAUDE.md" ]; then
-    cp "${CACHE_DIR}/CLAUDE.md" "${TARGET}/CLAUDE.md"
-    ok "CLAUDE.md copiado"
+    cp "${CACHE_DIR}/CLAUDE.install.md" "${TARGET}/CLAUDE.md"
+    ok "CLAUDE.md criado"
 else
     warn "CLAUDE.md já existe — não sobrescrito"
 fi
