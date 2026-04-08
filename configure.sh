@@ -1,7 +1,7 @@
 #!/bin/bash
 # configure.sh — configura o ecossistema Claude Code para este projeto.
-# Auto-detecta pacotes Python, diretório de testes e código-fonte.
-# Só pergunta quando não consegue inferir do projeto.
+# Detecta automaticamente se está num workspace (múltiplos serviços) ou
+# num projeto Python único e age de forma diferente em cada caso.
 # Idempotente: pode rodar múltiplas vezes sem efeitos colaterais.
 # Rode após ./setup.sh.
 
@@ -19,6 +19,7 @@ info() { echo -e "${CYAN}${BOLD}$1${NC}"; }
 ask()  { echo -e "${BOLD}$1${NC}"; }
 
 SERVICE_MAP=".claude/skills/cross-service-analysis/SERVICE_MAP.md"
+EXCLUDED_DIRS=".git .venv venv .env google-cloud-sdk node_modules"
 
 echo ""
 echo -e "${BOLD}Configuração do ecossistema Claude Code${NC}"
@@ -27,9 +28,8 @@ echo ""
 
 # ─── Funções de detecção ─────────────────────────────────────────────────────
 
+# Lista pacotes Python na raiz do diretório atual (maxdepth 2).
 detect_packages() {
-    # Pacotes Python = diretórios com __init__.py no nível raiz do projeto.
-    # Exclui: ambientes virtuais, .git, diretórios de teste, diretórios ocultos.
     find . -maxdepth 2 -name '__init__.py' \
         ! -path './.venv/*' ! -path './venv/*' ! -path './.env/*' \
         ! -path './.git/*' ! -path './.*' \
@@ -38,6 +38,48 @@ detect_packages() {
         | sed 's|/__init__.py$||' | sed 's|^\./||' | sort -u
 }
 
+# Verifica se um diretório contém código Python (tem __init__.py até depth 3).
+dir_has_python() {
+    find "$1" -maxdepth 3 -name '__init__.py' \
+        ! -path '*/.venv/*' ! -path '*/venv/*' \
+        2>/dev/null | grep -q .
+}
+
+# Retorna true se este diretório parece um workspace (múltiplos sub-repos com Python).
+detect_workspace() {
+    local count=0
+    for d in */; do
+        [ -d "$d" ] || continue
+        local name="${d%/}"
+        # Pula diretórios excluídos e ocultos
+        [[ "$name" == .* ]] && continue
+        local skip=0
+        for excl in $EXCLUDED_DIRS; do
+            [ "$name" = "$excl" ] && skip=1 && break
+        done
+        [ "$skip" -eq 1 ] && continue
+        dir_has_python "$d" && count=$((count + 1))
+        [ "$count" -gt 1 ] && return 0
+    done
+    return 1
+}
+
+# Lista subdiretórios do workspace que parecem serviços Python.
+detect_service_dirs() {
+    for d in */; do
+        [ -d "$d" ] || continue
+        local name="${d%/}"
+        [[ "$name" == .* ]] && continue
+        local skip=0
+        for excl in $EXCLUDED_DIRS; do
+            [ "$name" = "$excl" ] && skip=1 && break
+        done
+        [ "$skip" -eq 1 ] && continue
+        dir_has_python "$d" && echo "$name"
+    done
+}
+
+# Detecta o diretório de testes (tests/, test/, spec/).
 detect_tests_dir() {
     for d in tests test spec; do
         [ -d "$d" ] && echo "${d}/" && return
@@ -45,177 +87,138 @@ detect_tests_dir() {
 }
 
 is_kfp_placeholder() {
-    # Retorna 0 (true) se known-first-party ainda é o placeholder vazio.
     grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/#.*//' | grep -q '\[\]'
 }
 
 is_ptm_placeholder() {
-    # Retorna 0 (true) se paths_to_mutate ainda é o placeholder src/.
     grep -v '^#' mutmut.toml 2>/dev/null | grep 'paths_to_mutate' | grep -q '"src/"'
 }
 
-# ─── 1. known-first-party ────────────────────────────────────────────────────
-info "1/3 — Pacotes locais (isort)"
+apply_kfp() {
+    local pkgs_csv="$1"
+    local formatted
+    formatted=$(echo "$pkgs_csv" | sed 's/,/", "/g')
+    formatted="[\"${formatted}\"]"
+    sed -i.bak "s|known-first-party = .*|known-first-party = ${formatted}|" pyproject.toml
+    rm -f pyproject.toml.bak
+    ok "pyproject.toml → known-first-party = ${formatted}"
+}
 
-if ! is_kfp_placeholder; then
-    CURRENT_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
-    ok "pyproject.toml → known-first-party = ${CURRENT_KFP} (já configurado)"
+apply_ptm() {
+    local ptm="$1"
+    sed -i.bak "s|paths_to_mutate = .*|paths_to_mutate = \"${ptm}\"|" mutmut.toml
+    rm -f mutmut.toml.bak
+    ok "mutmut.toml → paths_to_mutate = \"${ptm}\""
+}
+
+apply_td() {
+    local td="$1"
+    sed -i.bak "s|tests_dir = .*|tests_dir = \"${td}\"|" mutmut.toml
+    rm -f mutmut.toml.bak
+    ok "mutmut.toml → tests_dir = \"${td}\""
+}
+
+# ─── Detecção de modo ────────────────────────────────────────────────────────
+
+if detect_workspace; then
+    MODE="workspace"
+    echo -e "Modo: ${CYAN}${BOLD}workspace${NC} (múltiplos serviços detectados)"
 else
-    PKGS_RAW=$(detect_packages)
-    if [ -n "$PKGS_RAW" ]; then
-        PKGS_CSV=$(echo "$PKGS_RAW" | tr '\n' ',' | sed 's/,$//')
-        FORMATTED=$(echo "$PKGS_CSV" | sed 's/,/", "/g')
-        FORMATTED="[\"${FORMATTED}\"]"
-        sed -i.bak "s|known-first-party = .*|known-first-party = ${FORMATTED}|" pyproject.toml
-        rm -f pyproject.toml.bak
-        ok "pyproject.toml → known-first-party = ${FORMATTED}"
-    else
-        warn "Nenhum pacote Python detectado (nenhum __init__.py encontrado)."
-        ask "   Informe os nomes dos pacotes locais (ex: myapp, utils): "
-        read -r INPUT_KFP
-        if [ -n "$INPUT_KFP" ]; then
-            FORMATTED=$(echo "$INPUT_KFP" | sed 's/[[:space:]]//g' | sed 's/,/", "/g')
-            FORMATTED="[\"${FORMATTED}\"]"
-            sed -i.bak "s|known-first-party = .*|known-first-party = ${FORMATTED}|" pyproject.toml
-            rm -f pyproject.toml.bak
-            ok "pyproject.toml → known-first-party = ${FORMATTED}"
-        else
-            fail "known-first-party não configurado — isort não separará imports locais corretamente"
-        fi
-    fi
+    MODE="single"
+    echo -e "Modo: ${CYAN}${BOLD}projeto único${NC}"
 fi
-
 echo ""
 
-# ─── 2. paths_to_mutate ──────────────────────────────────────────────────────
-info "2/3 — Mutation testing (mutmut)"
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODO WORKSPACE
+# ═══════════════════════════════════════════════════════════════════════════════
+if [ "$MODE" = "workspace" ]; then
 
-if ! is_ptm_placeholder; then
-    CURRENT_PTM=$(grep -v '^#' mutmut.toml 2>/dev/null | grep 'paths_to_mutate' | sed 's/.*= //' | tr -d '"')
-    ok "mutmut.toml → paths_to_mutate = ${CURRENT_PTM} (já configurado)"
-else
-    PKGS_RAW=$(detect_packages)
-    if [ -n "$PKGS_RAW" ]; then
-        PTM=$(echo "$PKGS_RAW" | tr '\n' ',' | sed 's/,$//')
-        sed -i.bak "s|paths_to_mutate = .*|paths_to_mutate = \"${PTM}\"|" mutmut.toml
-        rm -f mutmut.toml.bak
-        ok "mutmut.toml → paths_to_mutate = \"${PTM}\""
-    else
-        warn "Nenhum pacote Python detectado para paths_to_mutate."
-        ask "   Informe o diretório do código-fonte (ex: myapp/): "
-        read -r INPUT_PTM
-        if [ -n "$INPUT_PTM" ]; then
-            INPUT_PTM="${INPUT_PTM%/}/"
-            sed -i.bak "s|paths_to_mutate = .*|paths_to_mutate = \"${INPUT_PTM}\"|" mutmut.toml
-            rm -f mutmut.toml.bak
-            ok "mutmut.toml → paths_to_mutate = \"${INPUT_PTM}\""
-        else
-            fail "paths_to_mutate não configurado"
-        fi
-    fi
-fi
+    info "pyproject.toml e mutmut.toml"
+    echo "   No workspace, essas configurações pertencem a cada serviço individualmente."
+    echo "   Rode ./configure.sh dentro de cada serviço para configurá-los."
+    echo ""
 
-# tests_dir — sempre detecta (idempotente, nenhuma ambiguidade de placeholder)
-TESTS=$(detect_tests_dir)
-CURRENT_TD=$(grep -v '^#' mutmut.toml 2>/dev/null | grep 'tests_dir' | sed 's/.*= //' | tr -d '"')
+    # ─── SERVICE_MAP.md ───────────────────────────────────────────────────────
+    info "SERVICE_MAP.md — Mapa de serviços"
+    echo ""
 
-if [ -n "$TESTS" ]; then
-    if [ "$TESTS" != "$CURRENT_TD" ]; then
-        sed -i.bak "s|tests_dir = .*|tests_dir = \"${TESTS}\"|" mutmut.toml
-        rm -f mutmut.toml.bak
-        ok "mutmut.toml → tests_dir = \"${TESTS}\""
-    else
-        ok "mutmut.toml → tests_dir = ${CURRENT_TD} (já configurado)"
-    fi
-else
-    warn "Nenhum diretório de testes encontrado (tests/, test/, spec/)."
-    ask "   Informe o diretório de testes: "
-    read -r INPUT_TD
-    if [ -n "$INPUT_TD" ]; then
-        INPUT_TD="${INPUT_TD%/}/"
-        sed -i.bak "s|tests_dir = .*|tests_dir = \"${INPUT_TD}\"|" mutmut.toml
-        rm -f mutmut.toml.bak
-        ok "mutmut.toml → tests_dir = \"${INPUT_TD}\""
-    else
-        fail "tests_dir não configurado"
-    fi
-fi
+    SKIP_SERVICE_MAP=0
 
-echo ""
-
-# ─── 3. SERVICE_MAP.md ───────────────────────────────────────────────────────
-info "3/3 — Serviços da plataforma (SERVICE_MAP.md)"
-echo "   Necessário apenas para projetos com múltiplos serviços."
-echo "   Habilita /blast-radius, /investigate e /cross-service-analysis."
-echo ""
-
-SKIP_SERVICE_MAP=0
-
-if [ -f "$SERVICE_MAP" ] && grep -q 'configure\.sh' "$SERVICE_MAP"; then
-    if grep -q 'single-service' "$SERVICE_MAP"; then
-        echo "   Configurado como: single-service"
-    else
+    if [ -f "$SERVICE_MAP" ] && grep -q 'configure\.sh' "$SERVICE_MAP"; then
         echo "   SERVICE_MAP.md já configurado. Serviços atuais:"
-        awk '/^## Diretórios dos Serviços/{found=1; next} /^(##|---)/{found=0} found && /^- /' "$SERVICE_MAP" | sed 's/^/   /'
+        awk '/^## Diretórios dos Serviços/{found=1; next} /^(##|---)/{found=0} found && /^- /' \
+            "$SERVICE_MAP" | sed 's/^/   /'
+        echo ""
+        ask "   Reconfigurar do zero? (s/N): "
+        read -r RECONFIG
+        if [[ ! "$RECONFIG" =~ ^[sS]$ ]]; then
+            ok "SERVICE_MAP.md → mantido sem alteração"
+            SKIP_SERVICE_MAP=1
+        fi
     fi
-    echo ""
-    ask "   Reconfigurar do zero? (s/N): "
-    read -r RECONFIG
-    if [[ ! "$RECONFIG" =~ ^[sS]$ ]]; then
-        ok "SERVICE_MAP.md → mantido sem alteração"
-        SKIP_SERVICE_MAP=1
-    fi
-fi
 
-if [ "$SKIP_SERVICE_MAP" -eq 0 ]; then
+    if [ "$SKIP_SERVICE_MAP" -eq 0 ]; then
+        DETECTED_SVCS=$(detect_service_dirs)
 
-ask "   Este projeto tem múltiplos serviços? (s/N): "
-read -r IS_MULTI
+        if [ -n "$DETECTED_SVCS" ]; then
+            echo "   Serviços detectados:"
+            echo "$DETECTED_SVCS" | sed 's/^/   - /'
+            echo ""
+            ask "   Usar esses serviços? (S/n): "
+            read -r USE_DETECTED
 
-if [[ "$IS_MULTI" =~ ^[sS]$ ]]; then
-    echo ""
-    ask "   Nomes dos serviços (separados por vírgula):"
-    ask "   Exemplo: payments, accounts, ledger"
-    ask "   Serviços: "
-    read -r INPUT_SERVICES
-
-    IFS=',' read -ra SERVICE_ARRAY <<< "$INPUT_SERVICES"
-
-    declare -a SERVICE_DIRS
-    echo ""
-    for SVC in "${SERVICE_ARRAY[@]}"; do
-        SVC=$(echo "$SVC" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        ask "   Diretório de '${SVC}' (ex: ~/projects/api-ms-${SVC}): "
-        read -r SVC_DIR
-        SERVICE_DIRS+=("${SVC}|${SVC_DIR}")
-    done
-
-    echo ""
-    ask "   Gerar SERVICE_MAP.md com esses dados? (S/n): "
-    read -r CONFIRM_MAP
-
-    if [[ ! "$CONFIRM_MAP" =~ ^[nN]$ ]]; then
-        SVC_LIST=""
-        SVC_DIRS_LIST=""
-        for ENTRY in "${SERVICE_DIRS[@]}"; do
-            SVC=$(echo "$ENTRY" | cut -d'|' -f1)
-            DIR=$(echo "$ENTRY" | cut -d'|' -f2)
-            SVC_LIST="${SVC_LIST}- ${SVC} — <descrição do serviço>\n"
-            SVC_DIRS_LIST="${SVC_DIRS_LIST}- ${SVC}: ${DIR}\n"
-        done
-
-        PIPELINE=""
-        PREV=""
-        for ENTRY in "${SERVICE_DIRS[@]}"; do
-            SVC=$(echo "$ENTRY" | cut -d'|' -f1)
-            if [ -n "$PREV" ]; then
-                PIPELINE="${PIPELINE} -> "
+            if [[ ! "$USE_DETECTED" =~ ^[nN]$ ]]; then
+                SVC_NAMES="$DETECTED_SVCS"
+            else
+                ask "   Nomes dos serviços (separados por vírgula): "
+                read -r INPUT_SVCS
+                SVC_NAMES=$(echo "$INPUT_SVCS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             fi
-            PIPELINE="${PIPELINE}${SVC}"
-            PREV="$SVC"
-        done
+        else
+            ask "   Nenhum serviço detectado. Informe os nomes (separados por vírgula): "
+            read -r INPUT_SVCS
+            SVC_NAMES=$(echo "$INPUT_SVCS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        fi
 
-        cat > "$SERVICE_MAP" << MAPEOF
+        # Coleta diretório de cada serviço (auto-detecta se existir)
+        declare -a SERVICE_ENTRIES
+        CWD=$(pwd)
+        echo ""
+        while IFS= read -r SVC; do
+            [ -z "$SVC" ] && continue
+            if [ -d "$SVC" ]; then
+                SVC_DIR="${CWD}/${SVC}"
+                ok "  ${SVC} → ${SVC_DIR}"
+                SERVICE_ENTRIES+=("${SVC}|${SVC_DIR}")
+            else
+                ask "   Diretório de '${SVC}': "
+                read -r SVC_DIR
+                SERVICE_ENTRIES+=("${SVC}|${SVC_DIR}")
+            fi
+        done <<< "$SVC_NAMES"
+
+        echo ""
+        ask "   Gerar SERVICE_MAP.md? (S/n): "
+        read -r CONFIRM_MAP
+
+        if [[ ! "$CONFIRM_MAP" =~ ^[nN]$ ]]; then
+            SVC_LIST=""
+            SVC_DIRS_LIST=""
+            PIPELINE=""
+            PREV=""
+
+            for ENTRY in "${SERVICE_ENTRIES[@]}"; do
+                SVC=$(echo "$ENTRY" | cut -d'|' -f1)
+                DIR=$(echo "$ENTRY" | cut -d'|' -f2)
+                SVC_LIST="${SVC_LIST}- ${SVC} — <descrição do serviço>\n"
+                SVC_DIRS_LIST="${SVC_DIRS_LIST}- ${SVC}: ${DIR}\n"
+                [ -n "$PREV" ] && PIPELINE="${PIPELINE} -> "
+                PIPELINE="${PIPELINE}${SVC}"
+                PREV="$SVC"
+            done
+
+            cat > "$SERVICE_MAP" << MAPEOF
 # Service Dependency Map
 
 <!-- Gerado por configure.sh — atualize conforme necessário. -->
@@ -264,33 +267,157 @@ ${PIPELINE}
 
 $(printf '%b' "$SVC_DIRS_LIST")
 MAPEOF
-        SVC_COUNT=${#SERVICE_DIRS[@]}
-        ok "SERVICE_MAP.md → configurado (${SVC_COUNT} serviços)"
-    else
-        ok "SERVICE_MAP.md → mantido sem alteração"
+            SVC_COUNT=${#SERVICE_ENTRIES[@]}
+            ok "SERVICE_MAP.md → configurado (${SVC_COUNT} serviços)"
+        fi
     fi
+
+    echo ""
+    echo "────────────────────────────────────────"
+    echo -e "${BOLD}Resumo${NC}"
+    echo ""
+    echo "  Workspace com ${SVC_COUNT:-?} serviços configurados em SERVICE_MAP.md"
+    echo "  Para configurar pyproject.toml e mutmut.toml de cada serviço:"
+    echo "    cd <serviço> && ../configure.sh"
+    echo ""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODO PROJETO ÚNICO
+# ═══════════════════════════════════════════════════════════════════════════════
 else
-    sed -i.bak "1s|^|<!-- configure.sh: single-service -->\n\n|" "$SERVICE_MAP"
-    rm -f "${SERVICE_MAP}.bak"
-    ok "SERVICE_MAP.md → marcado como single-service"
+
+    # ─── 1. known-first-party ─────────────────────────────────────────────────
+    info "1/3 — Pacotes locais (isort)"
+
+    if [ -f "pyproject.toml" ]; then
+        if ! is_kfp_placeholder; then
+            CURRENT_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null \
+                | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
+            ok "pyproject.toml → known-first-party = ${CURRENT_KFP} (já configurado)"
+        else
+            PKGS_RAW=$(detect_packages)
+            if [ -n "$PKGS_RAW" ]; then
+                PKGS_CSV=$(echo "$PKGS_RAW" | tr '\n' ',' | sed 's/,$//')
+                apply_kfp "$PKGS_CSV"
+            else
+                warn "Nenhum pacote Python detectado (nenhum __init__.py na raiz)."
+                ask "   Informe os nomes dos pacotes (ex: myapp, utils): "
+                read -r INPUT_KFP
+                if [ -n "$INPUT_KFP" ]; then
+                    PKGS_CSV=$(echo "$INPUT_KFP" | sed 's/[[:space:]]//g')
+                    apply_kfp "$PKGS_CSV"
+                else
+                    fail "known-first-party não configurado"
+                fi
+            fi
+        fi
+    else
+        warn "pyproject.toml não encontrado — pulando"
+    fi
+
+    echo ""
+
+    # ─── 2. mutmut ────────────────────────────────────────────────────────────
+    info "2/3 — Mutation testing (mutmut)"
+
+    if [ -f "mutmut.toml" ]; then
+        # paths_to_mutate
+        if ! is_ptm_placeholder; then
+            CURRENT_PTM=$(grep -v '^#' mutmut.toml | grep 'paths_to_mutate' \
+                | sed 's/.*= //' | tr -d '"')
+            ok "mutmut.toml → paths_to_mutate = ${CURRENT_PTM} (já configurado)"
+        else
+            PKGS_RAW=$(detect_packages)
+            if [ -n "$PKGS_RAW" ]; then
+                PTM=$(echo "$PKGS_RAW" | tr '\n' ',' | sed 's/,$//')
+                apply_ptm "$PTM"
+            else
+                warn "Nenhum pacote Python detectado para paths_to_mutate."
+                ask "   Informe o diretório do código (ex: myapp/): "
+                read -r INPUT_PTM
+                if [ -n "$INPUT_PTM" ]; then
+                    INPUT_PTM="${INPUT_PTM%/}/"
+                    apply_ptm "$INPUT_PTM"
+                else
+                    fail "paths_to_mutate não configurado"
+                fi
+            fi
+        fi
+
+        # tests_dir — sempre detecta (idempotente)
+        TESTS=$(detect_tests_dir)
+        CURRENT_TD=$(grep -v '^#' mutmut.toml | grep 'tests_dir' \
+            | sed 's/.*= //' | tr -d '"')
+        if [ -n "$TESTS" ]; then
+            [ "$TESTS" != "$CURRENT_TD" ] && apply_td "$TESTS" \
+                || ok "mutmut.toml → tests_dir = ${CURRENT_TD} (já configurado)"
+        else
+            warn "Nenhum diretório de testes encontrado (tests/, test/, spec/)."
+            ask "   Informe o diretório de testes: "
+            read -r INPUT_TD
+            if [ -n "$INPUT_TD" ]; then
+                INPUT_TD="${INPUT_TD%/}/"
+                apply_td "$INPUT_TD"
+            else
+                fail "tests_dir não configurado"
+            fi
+        fi
+    else
+        warn "mutmut.toml não encontrado — pulando"
+    fi
+
+    echo ""
+
+    # ─── 3. SERVICE_MAP.md ────────────────────────────────────────────────────
+    info "3/3 — Serviços da plataforma (SERVICE_MAP.md)"
+    echo "   Necessário apenas para projetos multi-serviço."
+    echo ""
+
+    SKIP_SERVICE_MAP=0
+
+    if [ -f "$SERVICE_MAP" ] && grep -q 'configure\.sh' "$SERVICE_MAP"; then
+        if grep -q 'single-service' "$SERVICE_MAP"; then
+            ok "SERVICE_MAP.md → single-service (já configurado)"
+        else
+            echo "   SERVICE_MAP.md já configurado."
+            ok "SERVICE_MAP.md → mantido sem alteração"
+        fi
+        SKIP_SERVICE_MAP=1
+    fi
+
+    if [ "$SKIP_SERVICE_MAP" -eq 0 ]; then
+        ask "   Este projeto tem múltiplos serviços? (s/N): "
+        read -r IS_MULTI
+
+        if [[ ! "$IS_MULTI" =~ ^[sS]$ ]]; then
+            sed -i.bak "1s|^|<!-- configure.sh: single-service -->\n\n|" "$SERVICE_MAP"
+            rm -f "${SERVICE_MAP}.bak"
+            ok "SERVICE_MAP.md → single-service"
+        else
+            echo "   Para projetos multi-serviço, rode configure.sh a partir do"
+            echo "   diretório pai que contém todos os serviços."
+        fi
+    fi
+
+    echo ""
+    echo "────────────────────────────────────────"
+    echo -e "${BOLD}Resumo${NC}"
+    echo ""
+
+    if [ -f "pyproject.toml" ]; then
+        KFP_FINAL=$(grep 'known-first-party' pyproject.toml | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
+        echo "  known-first-party  → ${KFP_FINAL}"
+    fi
+    if [ -f "mutmut.toml" ]; then
+        PTM_FINAL=$(grep -v '^#' mutmut.toml | grep 'paths_to_mutate' | sed 's/.*= //' | tr -d '"')
+        TD_FINAL=$(grep -v '^#' mutmut.toml | grep 'tests_dir' | sed 's/.*= //' | tr -d '"')
+        echo "  paths_to_mutate    → ${PTM_FINAL}"
+        echo "  tests_dir          → ${TD_FINAL}"
+    fi
+    echo ""
+
+    echo "Verificando com setup.sh..."
+    echo ""
+    bash "${CONFIGURE_SETUP_SH:-"$(dirname "$0")/setup.sh"}"
+
 fi
-
-fi # SKIP_SERVICE_MAP
-
-echo ""
-echo "────────────────────────────────────────"
-echo -e "${BOLD}Resumo${NC}"
-echo ""
-
-KFP_FINAL=$(grep 'known-first-party' pyproject.toml | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
-PTM_FINAL=$(grep -v '^#' mutmut.toml | grep 'paths_to_mutate' | sed 's/.*= //' | tr -d '"')
-TD_FINAL=$(grep -v '^#' mutmut.toml | grep 'tests_dir' | sed 's/.*= //' | tr -d '"')
-
-echo "  known-first-party  → ${KFP_FINAL}"
-echo "  paths_to_mutate    → ${PTM_FINAL}"
-echo "  tests_dir          → ${TD_FINAL}"
-echo ""
-
-echo "Verificando com setup.sh..."
-echo ""
-bash "${CONFIGURE_SETUP_SH:-"$(dirname "$0")/setup.sh"}"

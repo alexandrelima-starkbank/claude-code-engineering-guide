@@ -116,6 +116,7 @@ else
 fi
 
 # ─── pyproject.toml — known-first-party ──────────────────────────────────────
+# Só relevante em projetos únicos (workspaces não têm pyproject.toml na raiz)
 if [ -f "pyproject.toml" ] && grep 'known-first-party' pyproject.toml | sed 's/#.*//' | grep -q '\[\]'; then
     fail "pyproject.toml: known-first-party está vazio"
     warn "  → Execute ./configure.sh — detecta pacotes automaticamente"
@@ -135,10 +136,10 @@ else
 fi
 
 # ─── mutmut.toml — paths_to_mutate ───────────────────────────────────────────
+# Só relevante em projetos únicos (workspaces não têm mutmut.toml na raiz)
 if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
     fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
-    warn "  → Execute ./configure.sh para configurar interativamente"
-    warn "  → Ou edite mutmut.toml: paths_to_mutate = \"caminho/para/seu/codigo\""
+    warn "  → Execute ./configure.sh — detecta diretório automaticamente"
 fi
 
 # ─── osascript ────────────────────────────────────────────────────────────────
