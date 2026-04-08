@@ -102,4 +102,36 @@ ok "arquivos instalados em ${TARGET}"
 
 # ─── 4. Configura ─────────────────────────────────────────────────────────────
 echo ""
-exec "${TARGET}/configure.sh"
+"${TARGET}/configure.sh"
+
+# ─── 5. Claude Code ───────────────────────────────────────────────────────────
+echo ""
+if ! command -v claude &>/dev/null; then
+    warn "Claude Code não encontrado — instalando..."
+
+    if ! command -v npm &>/dev/null; then
+        warn "npm não encontrado — instalando Node.js..."
+        if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
+            brew install node || fail "Falha ao instalar Node.js. Instale manualmente: https://nodejs.org"
+        elif command -v apt-get &>/dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+            sudo apt-get install -y nodejs || fail "Falha ao instalar Node.js. Instale manualmente: https://nodejs.org"
+        elif command -v dnf &>/dev/null; then
+            sudo dnf install -y nodejs || fail "Falha ao instalar Node.js. Instale manualmente: https://nodejs.org"
+        else
+            fail "npm não encontrado. Instale o Node.js (https://nodejs.org) e rode:\n  npm install -g @anthropic-ai/claude-code"
+        fi
+    fi
+
+    npm install -g @anthropic-ai/claude-code \
+        || fail "Falha ao instalar Claude Code. Tente manualmente:\n  npm install -g @anthropic-ai/claude-code"
+    ok "Claude Code instalado"
+fi
+
+ok "claude $(claude --version 2>/dev/null | head -1)"
+
+# ─── 6. Abre Claude Code ──────────────────────────────────────────────────────
+echo ""
+echo -e "${GREEN}${BOLD}Ambiente pronto.${NC} Iniciando Claude Code em ${TARGET}..."
+echo ""
+cd "$TARGET" && exec claude
