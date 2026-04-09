@@ -15,9 +15,12 @@ INPUT=$(cat)
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Deleção recursiva — cobre: rm -rf, rm -fr, rm -r -f, sudo rm -rf e variantes
+# Exceção: /tmp/ é diretório temporário do sistema, sempre seguro para deletar
 if echo "$CMD" | grep -qE '(^|[[:space:];|&])(sudo[[:space:]]+)?rm[[:space:]]+[^;&|]*(-[a-zA-Z]*rf|-[a-zA-Z]*fr|-r[[:space:]]+-f|-f[[:space:]]+-r|--recursive[[:space:]]+--force|--force[[:space:]]+--recursive)'; then
-    echo "BLOQUEADO: 'rm -rf' requer confirmação explícita do usuário." >&2
-    exit 2
+    if ! echo "$CMD" | grep -qE 'rm[[:space:]]+[^;&|]*/tmp/'; then
+        echo "BLOQUEADO: 'rm -rf' requer confirmação explícita do usuário." >&2
+        exit 2
+    fi
 fi
 
 # git push destrutivo — --force, -f ou --force-with-lease em qualquer posição após push
