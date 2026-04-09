@@ -1,5 +1,5 @@
 ---
-description: Resumo diário — todas as tarefas ativas + concluídas/canceladas nas últimas 24h, independente de projeto.
+description: Resumo diário — tarefas ativas e concluídas nas últimas 24h, agrupadas por data, sem canceladas.
 allowed-tools: Bash
 ---
 # Daily Report
@@ -14,24 +14,37 @@ yesterday = str(date.today() - timedelta(days=1))
 tasks = json.load(sys.stdin)
 
 active = [t for t in tasks if t['status'] in ('em andamento', 'pendente')]
-recent = [t for t in tasks if t['status'] in ('concluido', 'concluído', 'cancelado')
-          and t.get('updatedAt', '')[:10] in (today, yesterday)]
+done = [t for t in tasks if t['status'] in ('concluido', 'concluído')
+        and t.get('updatedAt', '')[:10] in (today, yesterday)]
 
-order = {'em andamento': 0, 'pendente': 1}
-active.sort(key=lambda t: (order.get(t['status'], 9), t['id']))
-recent.sort(key=lambda t: t.get('updatedAt', ''), reverse=True)
+def sort_key(t):
+    order = {'em andamento': 0, 'pendente': 1}
+    return (order.get(t['status'], 9), t['id'])
 
-print(json.dumps(active + recent, ensure_ascii=False, indent=2))
+active.sort(key=sort_key)
+done.sort(key=lambda t: t.get('updatedAt', ''), reverse=True)
+
+result = {'today': today, 'yesterday': yesterday, 'active': active, 'done': done}
+print(json.dumps(result, ensure_ascii=False, indent=2))
 "
 ```
 
-Para cada tarefa no JSON resultante, gere **exatamente um bullet**:
+Com o JSON resultante, gere o relatório no seguinte formato:
 
 ```
-• [T<N>] <título> (<projeto>) | <fase> | <status> — <próximo passo em ≤8 palavras>
+{today} -> hoje
+[ ] <resumo da tarefa>
+[ ] <resumo da tarefa>
+
+{yesterday} -> ontem
+[X] <resumo da tarefa>
 ```
 
-- `em andamento` / `pendente`: próximo passo concreto (ex: "aprovar EARS", "escrever testes C01", "rodar mutmut")
-- `concluído` / `cancelado`: próximo passo = "—"
-- Sem cabeçalho, sem seções, sem texto adicional — apenas os bullets
-- Se JSON vazio: `Nenhuma atividade registrada.`
+Regras:
+- `[ ]` para `em andamento` e `pendente`
+- `[X]` para `concluído`
+- Tarefas ativas (`active`) listadas primeiro sob a data de hoje
+- Tarefas concluídas (`done`) agrupadas pela data de `updatedAt[:10]`
+- Resumo = título da tarefa, sem ID, sem projeto, sem fase
+- Se `active` e `done` ambos vazios: `Nenhuma atividade registrada.`
+- Sem texto adicional além do formato acima
