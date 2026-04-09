@@ -12,8 +12,7 @@ e slash commands para TDD, revisão de código e mutation testing.
 **Setup:**
 
 ```bash
-cd /caminho/do/seu-projeto
-bash <(curl -fsSL https://raw.githubusercontent.com/alexandrelima-starkbank/claude-code-engineering-guide/main/install.sh)
+git clone --depth 1 https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git /tmp/cce-guide && bash /tmp/cce-guide/install.sh
 ```
 
 Detecta o contexto (projeto único ou workspace), instala dependências, configura
