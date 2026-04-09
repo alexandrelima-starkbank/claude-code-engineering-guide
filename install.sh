@@ -10,6 +10,7 @@
 
 REPO_URL="https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git"
 CACHE_DIR="${HOME}/.cache/claude-code-guide"
+PIPELINE_DEST="${HOME}/.claude/pipeline"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -20,6 +21,11 @@ NC='\033[0m'
 ok()   { echo -e "${GREEN}[ok]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 fail() { echo -e "${RED}[erro]${NC} $1"; exit 1; }
+
+_create_tasks_placeholder() {
+    printf '# TASKS.md\n# Gerado por `pipeline export tasks-md` — NÃO EDITAR DIRETAMENTE\n# Fonte: ~/.claude/pipeline/pipeline.db\n\n---\n\n## Tarefas Ativas\n\n_Nenhuma tarefa ativa no momento._\n\n---\n\n## Histórico\n\n_Nenhuma tarefa concluída._\n' > "$1"
+    ok "TASKS.md criado (placeholder)"
+}
 
 echo ""
 echo -e "${BOLD}Instalação do ecossistema Claude Code${NC}"
@@ -42,7 +48,42 @@ if ! command -v git &>/dev/null; then
 fi
 ok "git $(git --version | awk '{print $3}')"
 
-# ─── 2. Template (clona ou atualiza no cache) ─────────────────────────────────
+# ─── 2. python3 / pip3 ────────────────────────────────────────────────────────
+echo ""
+if command -v python3 &>/dev/null; then
+    PY_VERSION=$(python3 --version | awk '{print $2}')
+    ok "python3 ${PY_VERSION}"
+else
+    warn "python3 não encontrado"
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
+        brew install python3 || fail "Falha ao instalar python3"
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y python3 python3-pip || fail "Falha ao instalar python3"
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y python3 python3-pip || fail "Falha ao instalar python3"
+    else
+        fail "python3 não encontrado. Instale em https://www.python.org"
+    fi
+fi
+
+PIP3=""
+for _pip in pip3 pip; do
+    if command -v "$_pip" &>/dev/null; then
+        PIP3="$_pip"
+        break
+    fi
+done
+if [ -z "$PIP3" ] && python3 -m pip --version &>/dev/null 2>&1; then
+    PIP3="python3 -m pip"
+fi
+
+if [ -n "$PIP3" ]; then
+    ok "pip ($($PIP3 --version | awk '{print $2}'))"
+else
+    warn "pip não encontrado — pipeline CLI não poderá ser instalado automaticamente"
+fi
+
+# ─── 3. Template (clona ou atualiza no cache) ─────────────────────────────────
 echo ""
 if [ -d "${CACHE_DIR}/.git" ]; then
     echo "Atualizando template..."
@@ -55,9 +96,44 @@ else
     ok "template baixado"
 fi
 
-# ─── 3. Copia arquivos para o destino ─────────────────────────────────────────
+# ─── 4. Pipeline CLI (global — ~/.claude/pipeline/) ───────────────────────────
+echo ""
+echo "── Pipeline CLI ─────────────────────────────────────────────────────────────"
+
+PIPELINE_SRC="${CACHE_DIR}/pipeline-cli"
+
+if [ -d "$PIPELINE_SRC" ]; then
+    mkdir -p "$PIPELINE_DEST"
+    cp -r "${PIPELINE_SRC}/." "$PIPELINE_DEST/"
+    ok "pipeline-cli copiado para ${PIPELINE_DEST}"
+
+    if [ -n "$PIP3" ]; then
+        $PIP3 install -e "$PIPELINE_DEST" --quiet 2>/dev/null \
+            && ok "pipeline CLI instalado" \
+            || warn "pipeline CLI — falha na instalação (tente: pip3 install -e ${PIPELINE_DEST})"
+    else
+        warn "pip3 indisponível — instale manualmente: pip3 install -e ${PIPELINE_DEST}"
+    fi
+
+    # ChromaDB (obrigatório — contexto semântico do Intake Protocol)
+    if [ -n "$PIP3" ]; then
+        $PIP3 install chromadb --quiet 2>/dev/null \
+            && ok "chromadb instalado" \
+            || { warn "chromadb — falha na instalação. Tentando com --user..."; \
+                 $PIP3 install chromadb --quiet --user 2>/dev/null \
+                     && ok "chromadb instalado (--user)" \
+                     || fail "chromadb — falha na instalação (tente: pip3 install chromadb)"; }
+    else
+        fail "chromadb não pode ser instalado — pip3 indisponível"
+    fi
+else
+    warn "pipeline-cli não encontrado no template — pulando"
+fi
+
+# ─── 5. Copia arquivos para o destino ─────────────────────────────────────────
 TARGET="${1:-$(pwd)}"
 echo ""
+echo "── Projeto destino ──────────────────────────────────────────────────────────"
 echo "Destino: ${TARGET}"
 echo ""
 
@@ -74,7 +150,7 @@ cp -r "${CACHE_DIR}/.claude" "${TARGET}/"
 cp "${CACHE_DIR}/setup.sh" "${TARGET}/setup.sh"
 cp "${CACHE_DIR}/configure.sh" "${TARGET}/configure.sh"
 cp "${CACHE_DIR}/mutmut.toml" "${TARGET}/mutmut.toml"
-chmod +x "${TARGET}/configure.sh" "${TARGET}/setup.sh"
+chmod +x "${TARGET}/configure.sh" "${TARGET}/setup.sh" "${TARGET}/.claude/hooks/"*.sh
 
 # Restaura settings.local.json se havia backup
 if [ -n "$SETTINGS_BACKUP" ]; then
@@ -83,12 +159,12 @@ if [ -n "$SETTINGS_BACKUP" ]; then
     ok ".claude/settings.local.json preservado"
 fi
 
-# pyproject.toml — não sobrescreve se já existir (pode ter config do projeto)
+# pyproject.toml — não sobrescreve se já existir
 if [ ! -f "${TARGET}/pyproject.toml" ]; then
     cp "${CACHE_DIR}/pyproject.toml" "${TARGET}/pyproject.toml"
     ok "pyproject.toml copiado"
 else
-    warn "pyproject.toml já existe — não sobrescrito"
+    ok "pyproject.toml já existe — mantido"
 fi
 
 # CLAUDE.md — não sobrescreve (pode ter config específica do projeto)
@@ -96,42 +172,51 @@ if [ ! -f "${TARGET}/CLAUDE.md" ]; then
     cp "${CACHE_DIR}/CLAUDE.install.md" "${TARGET}/CLAUDE.md"
     ok "CLAUDE.md criado"
 else
-    warn "CLAUDE.md já existe — não sobrescrito"
+    ok "CLAUDE.md já existe — mantido"
 fi
 
-# TASKS.md — não sobrescreve (pode ter tarefas ativas)
+ok "arquivos instalados em ${TARGET}"
+
+# ─── 6. TASKS.md — gerado pelo pipeline DB ────────────────────────────────────
+echo ""
+echo "── TASKS.md ─────────────────────────────────────────────────────────────────"
+
 if [ ! -f "${TARGET}/TASKS.md" ]; then
-    cp "${CACHE_DIR}/TASKS.md" "${TARGET}/TASKS.md"
-    ok "TASKS.md criado"
+    # Tenta gerar via pipeline CLI; fallback: cria placeholder correto
+    if command -v pipeline &>/dev/null; then
+        PROJECT_NAME="$(basename "$TARGET")"
+        PROJECT_ID=$(pipeline project list 2>/dev/null | grep "^${PROJECT_NAME}" | awk '{print $1}')
+        if [ -z "$PROJECT_ID" ]; then
+            # Registra o projeto no DB e gera TASKS.md vazio
+            pipeline task list --project "$PROJECT_NAME" --format json > /dev/null 2>&1 || true
+        fi
+        pipeline export tasks-md --project "$PROJECT_NAME" --output "${TARGET}/TASKS.md" 2>/dev/null \
+            && ok "TASKS.md gerado pelo pipeline" \
+            || _create_tasks_placeholder "${TARGET}/TASKS.md"
+    else
+        _create_tasks_placeholder "${TARGET}/TASKS.md"
+    fi
 else
-    ok "TASKS.md já existe"
+    ok "TASKS.md já existe — mantido"
 fi
 
-# HISTORY_TASKS.md — cria vazio se não existir
-if [ ! -f "${TARGET}/HISTORY_TASKS.md" ]; then
-    printf '# HISTORY_TASKS.md — Histórico de Tarefas Concluídas\n\nRegistro permanente de todas as tarefas concluídas.\n' \
-        > "${TARGET}/HISTORY_TASKS.md"
-    ok "HISTORY_TASKS.md criado"
-fi
-
-# .gitignore — adiciona entradas para arquivos locais
+# .gitignore — entradas para arquivos locais e gerados
 GITIGNORE="${TARGET}/.gitignore"
 {
     grep -q '.claude/settings.local.json' "$GITIGNORE" 2>/dev/null || echo ".claude/settings.local.json"
     grep -q 'TASKS.md' "$GITIGNORE" 2>/dev/null || echo "TASKS.md"
-    grep -q 'HISTORY_TASKS.md' "$GITIGNORE" 2>/dev/null || echo "HISTORY_TASKS.md"
     grep -q 'CLAUDE.local.md' "$GITIGNORE" 2>/dev/null || echo "CLAUDE.local.md"
+    grep -q '.mutmut-cache' "$GITIGNORE" 2>/dev/null || echo ".mutmut-cache"
 } >> "$GITIGNORE"
 ok ".gitignore atualizado"
 
-ok "arquivos instalados em ${TARGET}"
-
-# ─── 4. Configura ─────────────────────────────────────────────────────────────
+# ─── 7. Configura pyproject.toml / mutmut.toml / SERVICE_MAP ─────────────────
 echo ""
 "${TARGET}/configure.sh"
 
-# ─── 5. Claude Code ───────────────────────────────────────────────────────────
+# ─── 8. Claude Code ───────────────────────────────────────────────────────────
 echo ""
+echo "── Claude Code ──────────────────────────────────────────────────────────────"
 if ! command -v claude &>/dev/null; then
     warn "Claude Code não encontrado — instalando..."
 
@@ -141,22 +226,21 @@ if ! command -v claude &>/dev/null; then
             brew install node || fail "Falha ao instalar Node.js. Instale manualmente: https://nodejs.org"
         elif command -v apt-get &>/dev/null; then
             curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-            sudo apt-get install -y nodejs || fail "Falha ao instalar Node.js. Instale manualmente: https://nodejs.org"
+            sudo apt-get install -y nodejs || fail "Falha ao instalar Node.js"
         elif command -v dnf &>/dev/null; then
-            sudo dnf install -y nodejs || fail "Falha ao instalar Node.js. Instale manualmente: https://nodejs.org"
+            sudo dnf install -y nodejs || fail "Falha ao instalar Node.js"
         else
             fail "npm não encontrado. Instale o Node.js (https://nodejs.org) e rode:\n  npm install -g @anthropic-ai/claude-code"
         fi
     fi
 
     npm install -g @anthropic-ai/claude-code \
-        || fail "Falha ao instalar Claude Code. Tente manualmente:\n  npm install -g @anthropic-ai/claude-code"
+        || fail "Falha ao instalar Claude Code. Tente:\n  npm install -g @anthropic-ai/claude-code"
     ok "Claude Code instalado"
 fi
-
 ok "claude $(claude --version 2>/dev/null | head -1)"
 
-# ─── 6. Abre Claude Code ──────────────────────────────────────────────────────
+# ─── 9. Abre Claude Code ──────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}Ambiente pronto.${NC} Iniciando Claude Code em ${TARGET}..."
 echo ""

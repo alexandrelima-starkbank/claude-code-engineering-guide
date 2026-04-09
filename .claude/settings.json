@@ -6,13 +6,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/inject-tasks-context.sh",
-            "timeout": 3000
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/enforce-intake-protocol.sh'",
+            "timeout": 5000
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-requirements.sh",
-            "timeout": 3000
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/inject-tasks-context.sh'",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/validate-requirements.sh'",
+            "timeout": 5000
           }
         ]
       }
@@ -22,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/inject-git-context.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/inject-git-context.sh'",
             "timeout": 5000
           }
         ]
@@ -34,12 +39,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-destructive.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/validate-destructive.sh'",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/pre-commit-gate.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/pre-commit-gate.sh'",
             "timeout": 60000
           }
         ]
@@ -51,12 +56,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-bash-syntax.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/check-bash-syntax.sh'",
             "timeout": 10000
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-python-style.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/check-python-style.sh'",
+            "timeout": 10000
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/record-test-results.sh'",
+            "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/record-mutation-results.sh'",
             "timeout": 10000
           }
         ]
@@ -67,7 +87,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/notify-done.sh",
+            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && bash .claude/hooks/notify-done.sh'",
             "timeout": 5000
           }
         ]

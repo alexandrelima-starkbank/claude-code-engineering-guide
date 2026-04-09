@@ -1,13 +1,38 @@
 #!/bin/bash
-# UserPromptSubmit — injeta tarefas ativas do TASKS.md em cada prompt.
-# Garante que Claude sempre sabe o estado atual do trabalho sem precisar ser instruído.
-# Se houver tarefas concluídas/canceladas ainda em "Tarefas Ativas", injeta alerta urgente.
+# UserPromptSubmit — injeta contexto das tarefas ativas e mandato de atualização.
+# Tenta pipeline CLI primeiro; cai no TASKS.md como fallback.
 
 if ! command -v jq &>/dev/null; then
     exit 0
 fi
 
-# Busca TASKS.md: raiz do repositório git primeiro, depois CWD
+MANDATORY="
+
+GESTÃO DE TAREFAS — OBRIGATÓRIO:
+Antes de finalizar esta resposta, verifique o status da tarefa ativa:
+  • Trabalho completado nesta resposta → pipeline task update <ID> --status \"concluído\"
+  • Fase concluída nesta resposta     → pipeline phase advance <ID> --to <próxima-fase>
+  • Bloqueado                         → pipeline task update <ID> --status \"bloqueado\"
+Nunca encerre uma resposta com trabalho concluído sem executar o comando acima."
+
+CONTEXT=""
+
+# --- Tentativa 1: pipeline CLI (fonte de verdade) ---
+if command -v pipeline &>/dev/null; then
+    ACTIVE=$(pipeline task list --status "em andamento" --format context 2>/dev/null)
+    if [ -n "$ACTIVE" ]; then
+        CONTEXT=$(printf "Tarefas ativas (pipeline DB):\n%s\n%s" "$ACTIVE" "$MANDATORY")
+        jq -n --arg ctx "$CONTEXT" '{
+            hookSpecificOutput: {
+                hookEventName: "UserPromptSubmit",
+                additionalContext: $ctx
+            }
+        }'
+        exit 0
+    fi
+fi
+
+# --- Fallback: TASKS.md ---
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -n "$GIT_ROOT" ] && [ -f "${GIT_ROOT}/TASKS.md" ]; then
     TASKS_FILE="${GIT_ROOT}/TASKS.md"
@@ -17,20 +42,18 @@ else
     exit 0
 fi
 
-# Extrai apenas a seção de tarefas ativas (entre ## Tarefas Ativas e ## Histórico)
 ACTIVE=$(awk '/^## Tarefas Ativas/{found=1; next} /^## Histórico/{found=0} found' "$TASKS_FILE" \
     | grep -v '^_Nenhuma' \
+    | grep -v '^# Gerado' \
     | sed '/^[[:space:]]*$/d')
 
 [ -z "$ACTIVE" ] && exit 0
 
-# Detecta tarefas concluídas ou canceladas que ainda não foram movidas para o Histórico
 STALE=$(echo "$ACTIVE" | grep -iE '\*\*Status:\*\*\s*(concluído|cancelado)')
-
-CONTEXT=$(printf "Estado atual das tarefas (TASKS.md):\n%s" "$ACTIVE")
+CONTEXT=$(printf "Tarefas ativas (TASKS.md):\n%s\n%s" "$ACTIVE" "$MANDATORY")
 
 if [ -n "$STALE" ]; then
-    CONTEXT=$(printf "ACAO OBRIGATORIA: ha tarefas com status 'concluido' ou 'cancelado' ainda em Tarefas Ativas.\nMova-as para ## Historico em TASKS.md ANTES de responder a qualquer outra coisa.\n\n%s" "$CONTEXT")
+    CONTEXT=$(printf "ACAO OBRIGATORIA: tarefas concluídas ainda em Tarefas Ativas. Mova para Histórico ANTES de responder.\n\n%s" "$CONTEXT")
 fi
 
 jq -n --arg ctx "$CONTEXT" '{
@@ -39,4 +62,3 @@ jq -n --arg ctx "$CONTEXT" '{
         additionalContext: $ctx
     }
 }'
-exit 0

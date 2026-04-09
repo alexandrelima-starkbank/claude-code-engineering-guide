@@ -9,45 +9,74 @@ Desenvolvimento completo com rastreabilidade total: requisitos EARS → critéri
 
 ---
 
-## Fase 0 — Requisitos EARS
+## Fase 0 — Intake e Requisitos EARS
 
-**Responsabilidade:** produzir requisitos EARS aprovados antes de qualquer spec ou código.
+### 0a. Consultar contexto semântico
 
-Executar o fluxo de `/requirements`:
+```bash
+pipeline context search "$ARGUMENTS"
+```
 
-1. Ler `CLAUDE.md` e `TASKS.md` para entender domínio e contexto existente
-2. Analisar `$ARGUMENTS` — mapear o que está claro e o que está ambíguo
-3. Se houver gaps críticos, fazer até 5 perguntas objetivas e aguardar resposta
-4. Gerar requisitos nos padrões EARS aplicáveis (ubíquo, evento, estado, indesejado, opcional)
-5. Validar completude internamente (caminho feliz, erros, sem ambiguidade, testáveis)
-6. **Apresentar requisitos e aguardar aprovação explícita antes de continuar**
+Se encontrar requisitos similares ou decisões relevantes: apresentar ao engenheiro antes de perguntar.
 
-Não avançar para a Fase 1 sem aprovação explícita dos requisitos.
+### 0b. Elicitar e aprovar EARS
 
-**GATE:** ao receber aprovação, editar `TASKS.md` agora:
-- Se não houver tarefa correspondente, criar antes de editar
-- Escrever os requisitos aprovados na seção `**Requisitos EARS:**`
-- Só então confirmar ao usuário e avançar para a Fase 1
+1. Analisar `$ARGUMENTS` — mapear o que está claro e o que está ambíguo
+2. Se houver gaps críticos, fazer até 3 perguntas objetivas e aguardar resposta
+3. Gerar requisitos nos padrões EARS aplicáveis
+4. Validar completude internamente (caminho feliz, erros, sem ambiguidade, testáveis)
+5. **Apresentar e aguardar aprovação explícita**
+
+### 0c. Gravar no banco (após aprovação)
+
+```bash
+# Criar task se não existir
+TASK_ID=$(pipeline task create --title "<título>")
+
+# Gravar cada EARS
+pipeline ears add $TASK_ID --pattern <padrão> --text "<requisito>"
+# ... repetir para cada requisito
+
+# Aprovar e avançar fase
+pipeline ears approve $TASK_ID all
+pipeline phase advance $TASK_ID --to spec
+```
+
+**GATE:** não avançar para Fase 1 sem aprovação explícita e fase = `spec` no DB.
 
 ---
 
 ## Fase 1 — Spec (Critérios de Aceite)
 
-**Responsabilidade:** derivar cenários Given/When/Then rastreáveis aos requisitos EARS aprovados.
+### 1a. Derivar cenários dos EARS aprovados
 
-Executar o fluxo de `/spec` tendo os requisitos da Fase 0 como input:
+```bash
+pipeline ears list $TASK_ID
+```
 
-1. Para cada requisito EARS, derivar um ou mais cenários Given/When/Then
-2. Cada "Então" mapeia para exatamente um método de teste: `test<Cenário>_<Condição>`
-3. Cobrir: caminho feliz, erros (IF/THEN), edge cases, valores de fronteira
-4. Manter rastreabilidade — cada cenário indica o requisito EARS de origem
-5. **Apresentar spec e aguardar aprovação explícita antes de continuar**
+Para cada requisito EARS, derivar um ou mais cenários Given/When/Then.
+Cada "Então" mapeia para exatamente um método de teste: `test<Cenário>_<Condição>`.
+Manter rastreabilidade — cada cenário indica o EARS de origem.
 
-Não avançar para a Fase 2 sem aprovação explícita da spec.
+### 1b. Apresentar e aguardar aprovação explícita
 
-**GATE:** ao receber aprovação, editar `TASKS.md` agora:
-- Escrever os cenários aprovados na seção `**Critério de aceitação:**`
-- Só então avançar para a Fase 2
+### 1c. Gravar no banco (após aprovação)
+
+```bash
+pipeline criterion add $TASK_ID \
+    --ears <R_ID> \
+    --scenario "<nome>" \
+    --given "<dado>" \
+    --when "<quando>" \
+    --then "<então>" \
+    --test "testXxx_Yyy"
+# ... repetir para cada cenário
+
+pipeline criterion approve $TASK_ID all
+pipeline phase advance $TASK_ID --to tests
+```
+
+**GATE:** não avançar para Fase 2 sem aprovação explícita e fase = `tests` no DB.
 
 ---
 
@@ -71,7 +100,12 @@ def test<Cenário>_<Condição>(self):
 ```
 
 **Executar os testes — todos DEVEM falhar.**
-Se algum passar antes da implementação existir, ele não testa o comportamento correto — corrigir até falhar pelo motivo certo.
+Se algum passar antes da implementação existir, ele não está testando corretamente.
+
+Após executar (o hook `record-test-results.sh` registra automaticamente):
+```bash
+pipeline phase advance $TASK_ID --to implementation
+```
 
 ---
 
@@ -79,41 +113,48 @@ Se algum passar antes da implementação existir, ele não testa o comportamento
 
 Implementar o mínimo de código para os testes passarem:
 - Nenhuma funcionalidade além do que os testes exigem
-- Seguir todas as convenções do `CLAUDE.md` (camelCase, sem else, `.format()`, sem type hints, sem docstrings)
+- Seguir todas as convenções (camelCase, sem else, `.format()`, sem type hints, sem docstrings)
 - Executar os testes após cada mudança significativa
-- Parar quando todos passarem — sem over-engineering
+- Parar quando todos passarem
+
+Após todos os testes passarem:
+```bash
+pipeline phase advance $TASK_ID --to mutation
+```
 
 ---
 
 ## Fase 4 — Verificação por Mutação
 
-Antes de executar, confirmar que `mutmut.toml` aponta para diretórios reais:
-```bash
-cat mutmut.toml
-```
-Se `paths_to_mutate` ou `tests_dir` contêm placeholders, atualizar antes de continuar.
-
-Executar mutation testing:
 ```bash
 mutmut run --paths-to-mutate <arquivo-implementado>
 mutmut results
 ```
 
-Para cada mutante sobrevivente (`mutmut show <id>`):
-- **Lacuna no teste**: adicionar assertion que mata o mutante
-- **Equivalente**: adicionar `# pragma: no mutate — <justificativa>`
+O hook `record-mutation-results.sh` registra o score automaticamente.
 
-**Não concluir antes que o mutation score seja 100%** (exceto equivalentes justificados).
+Para cada mutante sobrevivente (`mutmut show <id>`):
+- **Lacuna no teste:** adicionar assertion que mata o mutante
+- **Equivalente:** adicionar `# pragma: no mutate — <justificativa>`
+
+**Não concluir antes que o mutation score seja 100%.**
 
 ---
 
-## Fase 5 — Checklist Final
+## Fase 5 — Conclusão
 
-Confirmar todos os gates antes de marcar como concluído:
+```bash
+# Verificar gates
+pipeline audit $TASK_ID
 
-- [ ] Todos os requisitos EARS têm cenários Given/When/Then correspondentes
-- [ ] Todos os cenários têm método de teste correspondente
-- [ ] Todos os testes passam
-- [ ] Mutation score: 100% (exceto equivalentes justificados)
-- [ ] Convenções seguidas — executar `/review` para confirmar
-- [ ] Tarefa atualizada como `concluído` em `TASKS.md`
+# Se READY, registrar decisões relevantes e concluir
+pipeline context add --text "<decisão arquitetural>" --type decision --task $TASK_ID
+pipeline phase advance $TASK_ID --to done
+pipeline task update $TASK_ID --status "concluído"
+```
+
+Checklist final:
+- [ ] `pipeline audit $TASK_ID` → READY ✓
+- [ ] Todos os requisitos EARS têm cenários correspondentes
+- [ ] Mutation score: 100%
+- [ ] Convenções seguidas

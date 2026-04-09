@@ -5,29 +5,46 @@ description: Guides a complete TDD cycle — spec, failing tests, implementation
 
 # TDD: $ARGUMENTS
 
-Feature: **$ARGUMENTS**
+Assume que requisitos EARS já existem e foram aprovados em `$ARGUMENTS`.
+Inicia diretamente na geração de critérios de aceite.
 
 ---
 
-## Fase 1 — Especificação
+## Fase 1 — Spec (Critérios de Aceite)
 
-Execute o workflow de /spec para: $ARGUMENTS
+```bash
+TASK_ID=$(pipeline task list --status "em andamento" --format json | python3 -c "
+import sys, json
+tasks = json.load(sys.stdin)
+print(tasks[0]['id'] if tasks else '')
+")
+pipeline ears list $TASK_ID
+```
 
-- Gere todos os cenários (Dado / Quando / Então)
-- Mapeie cada "Então" para um nome de método de teste
-- **Apresente a spec e aguarde confirmação explícita antes de continuar**
+Para cada requisito EARS, derivar cenários Given/When/Then.
+Cada "Então" mapeia para um método: `test<Cenário>_<Condição>`.
 
-Não escreva código antes da spec ser aprovada.
+**Apresentar spec e aguardar confirmação explícita antes de continuar.**
+
+Após aprovação:
+```bash
+pipeline criterion add $TASK_ID --ears <R_ID> --scenario "<nome>" \
+    --given "<dado>" --when "<quando>" --then "<então>" --test "testXxx_Yyy"
+# ... repetir para cada cenário
+
+pipeline criterion approve $TASK_ID all
+pipeline phase advance $TASK_ID --to tests
+```
 
 ---
 
 ## Fase 2 — Testes que Falham
 
-Para cada "Então" aprovado, escreva o método de teste correspondente:
+Para cada "Então" aprovado, escrever o método de teste:
 
 ```python
 def test<Cenário>_<Condição>(self):
-    # Critério: <Então do spec — copie aqui>
+    # Critério: <Então do spec>
 
     # Arrange
     <setup>
@@ -39,54 +56,65 @@ def test<Cenário>_<Condição>(self):
     <assertion que verifica exatamente o "Então">
 ```
 
-**Execute os testes agora.** Todos DEVEM falhar:
+**Executar os testes — todos DEVEM falhar:**
 ```bash
 python3 -m pytest tests/ -v
 ```
 
-Se algum teste passar antes da implementação existir, ele não está testando o comportamento correto — corrija até falhar pelo motivo certo.
+O hook `record-test-results.sh` registra os resultados automaticamente.
+
+Após confirmar que todos falham pelo motivo correto:
+```bash
+pipeline phase advance $TASK_ID --to implementation
+```
 
 ---
 
 ## Fase 3 — Implementação
 
-Implemente o mínimo de código para fazer os testes passarem:
+Implementar o mínimo para os testes passarem:
 - Nenhuma funcionalidade além do que os testes exigem
-- Siga todas as convenções (camelCase, sem else, .format(), sem type hints, sem docstrings)
-- Execute os testes após cada mudança significativa
-- Pare quando todos passarem — sem over-engineering
+- Seguir convenções (camelCase, sem else, `.format()`, sem type hints, sem docstrings)
+- Executar testes após cada mudança significativa
+
+Após todos os testes passarem:
+```bash
+pipeline phase advance $TASK_ID --to mutation
+```
 
 ---
 
 ## Fase 4 — Verificação por Mutação
 
-Antes de rodar, confirme que `mutmut.toml` aponta para diretórios reais:
-```bash
-cat mutmut.toml
-```
-Se `paths_to_mutate` ou `tests_dir` ainda contêm placeholders (`src/`, `tests/`),
-atualize o arquivo antes de continuar.
-
-Execute mutation testing no código implementado:
 ```bash
 mutmut run --paths-to-mutate <arquivo-implementado>
 mutmut results
 ```
 
-Para cada mutante sobrevivente (`mutmut show <id>`):
-- **Gap de teste:** adicione o assert que mata o mutante
-- **Mutante equivalente:** adicione `# pragma: no mutate — <justificativa>`
+O hook `record-mutation-results.sh` registra o score automaticamente.
 
-**Não conclua a tarefa antes que o mutation score seja 100%** (exceto equivalentes justificados).
+Para cada mutante sobrevivente:
+- **Gap de teste:** adicionar assertion que mata o mutante
+- **Equivalente:** `# pragma: no mutate — <justificativa>`
+
+**Não concluir antes que o mutation score seja 100%.**
 
 ---
 
 ## Fase 5 — Conclusão
 
-Confirme todos os gates:
+```bash
+pipeline audit $TASK_ID
+```
 
-- [ ] Todos os critérios de aceitação têm método de teste correspondente
+Se READY:
+```bash
+pipeline phase advance $TASK_ID --to done
+pipeline task update $TASK_ID --status "concluído"
+```
+
+Checklist:
+- [ ] `pipeline audit $TASK_ID` → READY ✓
 - [ ] Todos os testes passam
-- [ ] Mutation score: 100% (não-equivalentes)
-- [ ] Convenções seguidas — rode `/review` para confirmar
-- [ ] Tarefa atualizada como `concluído` no TASKS.md
+- [ ] Mutation score: 100%
+- [ ] Convenções seguidas

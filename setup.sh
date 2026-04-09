@@ -37,7 +37,12 @@ if command -v python3 &>/dev/null; then
         ok "python3 ${PY_VERSION}"
     else
         fail "python3 ${PY_VERSION} — versão mínima requerida: 3.8"
-        warn "  → brew upgrade python3   (macOS)"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            warn "  → brew upgrade python3"
+        else
+            warn "  → sudo apt install python3.11   (Debian/Ubuntu)"
+            warn "  → sudo dnf install python3.11   (Fedora/RHEL)"
+        fi
     fi
 else
     fail "python3 não encontrado"
@@ -109,9 +114,16 @@ if command -v ruff &>/dev/null; then
 else
     warn "ruff não encontrado — linting Python desabilitado"
     if command -v pip3 &>/dev/null; then
-        pip3 install ruff --quiet 2>/dev/null || pip3 install ruff --quiet --user 2>/dev/null && ok "ruff instalado" || warn "  → pip3 install ruff --user"
-    elif [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
-        warn "  → brew install ruff   ou   pip3 install ruff"
+        pip3 install ruff --quiet 2>/dev/null \
+            || pip3 install ruff --quiet --user 2>/dev/null \
+            && ok "ruff instalado" \
+            || warn "  → pip3 install ruff --user"
+    else
+        if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
+            brew install ruff --quiet && ok "ruff instalado" || warn "  → brew install ruff"
+        else
+            warn "  → pip3 install ruff   (ou: brew install ruff no macOS)"
+        fi
     fi
 fi
 
@@ -139,9 +151,12 @@ if command -v mutmut &>/dev/null; then
 else
     warn "mutmut não encontrado — mutation testing desabilitado"
     if command -v pip3 &>/dev/null; then
-        pip3 install mutmut --quiet 2>/dev/null || pip3 install mutmut --quiet --user 2>/dev/null && ok "mutmut instalado" || warn "  → pip3 install mutmut --user"
+        pip3 install mutmut --quiet 2>/dev/null \
+            || pip3 install mutmut --quiet --user 2>/dev/null \
+            && ok "mutmut instalado" \
+            || warn "  → pip3 install mutmut --user"
     else
-        warn "  → pip3 install mutmut"
+        warn "  → pip3 install mutmut   (ou: brew install mutmut no macOS)"
     fi
 fi
 
@@ -151,6 +166,54 @@ if [ "$IS_WORKSPACE" -le 1 ]; then
     if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
         fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
         warn "  → Execute ./configure.sh — detecta diretório automaticamente"
+    fi
+fi
+
+# ─── pipeline CLI ─────────────────────────────────────────────────────────────
+# Banco de dados + CLI da pipeline EBTM — essencial para auditabilidade e rastreabilidade
+echo ""
+echo "── Pipeline CLI ─────────────────────────────────────────────────────────────"
+
+PIPELINE_DEST="${HOME}/.claude/pipeline"
+PIP3_CMD=""
+for _pip in pip3 pip; do
+    if command -v "$_pip" &>/dev/null; then
+        PIP3_CMD="$_pip"
+        break
+    fi
+done
+if [ -z "$PIP3_CMD" ] && python3 -m pip --version &>/dev/null 2>&1; then
+    PIP3_CMD="python3 -m pip"
+fi
+
+if command -v pipeline &>/dev/null; then
+    ok "pipeline CLI disponível"
+else
+    warn "pipeline CLI não encontrado — tentando instalar..."
+    if [ -d "$PIPELINE_DEST" ] && [ -n "$PIP3_CMD" ]; then
+        $PIP3_CMD install -e "$PIPELINE_DEST" --quiet 2>/dev/null \
+            && ok "pipeline CLI instalado" \
+            || fail "pipeline CLI — falha na instalação (tente: pip3 install -e ${PIPELINE_DEST})"
+    elif [ ! -d "$PIPELINE_DEST" ]; then
+        fail "pipeline CLI — ${PIPELINE_DEST} não encontrado"
+        warn "  → rode install.sh para provisionar o ambiente completo"
+    else
+        fail "pipeline CLI — pip3 não disponível"
+        warn "  → instale python3/pip3 e rode: pip3 install -e ${PIPELINE_DEST}"
+    fi
+fi
+
+# ChromaDB (obrigatório — contexto semântico do Intake Protocol)
+if python3 -c "import chromadb" &>/dev/null 2>&1; then
+    ok "chromadb — contexto semântico habilitado"
+else
+    fail "chromadb não instalado — Intake Protocol sem contexto semântico"
+    if [ -n "$PIP3_CMD" ]; then
+        $PIP3_CMD install chromadb --quiet 2>/dev/null \
+            && ok "chromadb instalado" \
+            || warn "  → pip3 install chromadb"
+    else
+        warn "  → pip3 install chromadb"
     fi
 fi
 

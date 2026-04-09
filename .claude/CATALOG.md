@@ -5,12 +5,22 @@ Cada entry point tem responsabilidade única — escolha o mais específico para
 
 ---
 
+## Intake
+
+O engenheiro descreve em linguagem natural. O modelo classifica, consulta ChromaDB,
+entrevista e roteia. Slash commands são internos — nunca exigidos do engenheiro.
+
+Protocolo completo: `CLAUDE.md → Intake Protocol`
+
+---
+
 ## Planejamento
 
 | Entry point | Quando usar | Precisa de | Produz |
 |---|---|---|---|
-| `/requirements` | Problema em linguagem natural, sem requisitos formalizados | Descrição do problema | Requisitos EARS escritos em TASKS.md |
-| `/spec` | Requisitos EARS existem em TASKS.md, falta critério de aceite | EARS em TASKS.md | Cenários Given/When/Then escritos em TASKS.md |
+| `/requirements` | Problema em linguagem natural, sem requisitos formalizados | Descrição do problema | Requisitos EARS gravados no DB + fase avançada para spec |
+| `/spec` | EARS aprovados no DB, falta critério de aceite | Task com EARS aprovados | Cenários Given/When/Then gravados no DB + fase avançada para tests |
+| `/pipeline-audit` | Verificar estado completo de uma tarefa | Task ID | PASS/FAIL por gate + rastreabilidade + métricas |
 
 ---
 
