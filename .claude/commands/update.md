@@ -7,7 +7,7 @@ allowed-tools: Bash
 ```bash
 rm -rf /tmp/cce-guide \
   && git clone --depth 1 https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git /tmp/cce-guide 2>&1 \
-  && bash /tmp/cce-guide/install.sh "$(pwd)"
+  && bash /tmp/cce-guide/install.sh "$(pwd)" --no-launch
 ```
 
 Após a execução, exiba o output do script e informe:

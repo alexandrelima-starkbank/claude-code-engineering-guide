@@ -7,10 +7,17 @@
 #
 # Uso com destino explícito:
 #   bash install.sh /caminho/destino
+#
+# Flags:
+#   --no-launch   não abre o Claude Code ao final (útil ao atualizar de dentro do ambiente)
 
 REPO_URL="https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git"
 CACHE_DIR="${HOME}/.cache/claude-code-guide"
 PIPELINE_DEST="${HOME}/.claude/pipeline"
+NO_LAUNCH=false
+for _arg in "$@"; do
+    [ "$_arg" = "--no-launch" ] && NO_LAUNCH=true
+done
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -245,6 +252,10 @@ ok "claude $(claude --version 2>/dev/null | head -1)"
 
 # ─── 9. Abre Claude Code ──────────────────────────────────────────────────────
 echo ""
-echo -e "${GREEN}${BOLD}Ambiente pronto.${NC} Iniciando Claude Code em ${TARGET}..."
-echo ""
-cd "$TARGET" && exec claude
+if [ "$NO_LAUNCH" = true ]; then
+    echo -e "${GREEN}${BOLD}Ambiente atualizado.${NC} Reinicie a sessão para aplicar as mudanças."
+else
+    echo -e "${GREEN}${BOLD}Ambiente pronto.${NC} Iniciando Claude Code em ${TARGET}..."
+    echo ""
+    cd "$TARGET" && exec claude
+fi
