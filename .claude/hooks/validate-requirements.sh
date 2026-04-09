@@ -82,6 +82,29 @@ except:
         fi
     fi
 
+    # Gate 3: tests — verificar qualidade dos testes antes de implementar
+    if [ "$PHASE" = "tests" ]; then
+        UNREVIEWED=$(pipeline criterion list "$TASK_ID" --format json 2>/dev/null | python3 -c "
+import sys, json
+try:
+    criteria = json.load(sys.stdin)
+    n = len([c for c in criteria
+             if c.get('testMethod') and c.get('testQuality') not in ('ACCEPTABLE', 'STRONG')])
+    print(n)
+except:
+    print(0)
+" 2>/dev/null)
+        if [ "${UNREVIEWED:-0}" -gt 0 ]; then
+            jq -n --arg task "$TASK_ID" --arg n "$UNREVIEWED" '{
+                hookSpecificOutput: {
+                    hookEventName: "UserPromptSubmit",
+                    additionalContext: ("GATE QUALIDADE DE TESTES ativo — " + $task + " tem " + $n + " critério(s) sem qualidade avaliada.\n\nPara cada critério com testMethod, responda: esta assertion detectaria o bug descrito no Então se a implementação estivesse errada?\n  STRONG     — verifica o comportamento exato do Então\n  ACCEPTABLE — verifica o comportamento mas poderia ser mais precisa\n  WEAK       — verifica apenas que não lançou exceção ou que algo retornou\n\nRegistre: pipeline criterion set-quality " + $task + " <C_ID> STRONG|ACCEPTABLE|WEAK\nCritérios WEAK devem ter a assertion reescrita antes de avançar.")
+                }
+            }'
+            exit 0
+        fi
+    fi
+
     exit 0
 fi
 

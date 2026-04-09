@@ -102,7 +102,22 @@ def test<Cenário>_<Condição>(self):
 **Executar os testes — todos DEVEM falhar.**
 Se algum passar antes da implementação existir, ele não está testando corretamente.
 
-Após executar (o hook `record-test-results.sh` registra automaticamente):
+Após confirmar que todos falham pelo motivo correto, **avaliar a qualidade de cada teste**:
+
+Para cada critério com `testMethod`, responder: *"esta assertion detectaria o bug descrito no 'Então' se a implementação estivesse errada?"*
+
+```bash
+# Registrar qualidade de cada critério (STRONG / ACCEPTABLE / WEAK)
+pipeline criterion set-quality $TASK_ID <C_ID> STRONG
+
+# STRONG     — assertion verifica o comportamento exato do "Então"
+# ACCEPTABLE — verifica o comportamento mas poderia ser mais precisa
+# WEAK       — verifica apenas que não lançou exceção ou que algo retornou
+```
+
+Critérios WEAK devem ter a assertion reescrita antes de avançar.
+
+Após qualidade avaliada (o hook `record-test-results.sh` registra automaticamente):
 ```bash
 pipeline phase advance $TASK_ID --to implementation
 ```
