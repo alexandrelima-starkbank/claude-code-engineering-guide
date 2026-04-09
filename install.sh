@@ -253,7 +253,7 @@ ok "claude $(claude --version 2>/dev/null | head -1)"
 # ─── 9. Abre Claude Code ──────────────────────────────────────────────────────
 echo ""
 if [ "$NO_LAUNCH" = true ]; then
-    echo -e "${GREEN}${BOLD}Ambiente atualizado.${NC} Reinicie a sessão para aplicar as mudanças."
+    echo -e "${GREEN}${BOLD}Ambiente atualizado.${NC} Mudanças em hooks e commands entram em vigor imediatamente."
 else
     echo -e "${GREEN}${BOLD}Ambiente pronto.${NC} Iniciando Claude Code em ${TARGET}..."
     echo ""
