@@ -132,8 +132,9 @@ def taskShow(task_id, fmt):
 @click.option("--status", default=None)
 @click.option("--description", default=None)
 @click.option("--title", default=None)
-def taskUpdateCmd(task_id, status, description, title):
-    updateTask(task_id, status=status, description=description, title=title)
+@click.option("--type", "task_type", default=None, type=click.Choice(["feature", "bug", "incident", "refactor"]))
+def taskUpdateCmd(task_id, status, description, title, task_type):
+    updateTask(task_id, status=status, description=description, title=title, type=task_type)
     click.echo("{0} atualizado.".format(task_id))
     autoRegenTasksMd()
 

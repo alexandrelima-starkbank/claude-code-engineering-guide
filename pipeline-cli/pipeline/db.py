@@ -192,7 +192,7 @@ def listTasks(projectId=None, status=None, phase=None):
         return [dict(row) for row in conn.execute(query, params).fetchall()]
 
 def updateTask(taskId, **kwargs):
-    allowed = {"status", "description", "title"}
+    allowed = {"status", "description", "title", "type"}
     updates = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
     if not updates:
         return

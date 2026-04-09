@@ -50,8 +50,8 @@ lines = ['*Daily Report — {}*'.format(name), '']
 if active:
     lines.append('{} -> hoje'.format(today))
     for t in active:
-        tag = ' [ZENDESK]' if t.get('type') == 'incident' else ''
-        lines.append('[ ] {}{}'.format(t['title'], tag))
+        tag = '[ZENDESK] ' if t.get('type') == 'incident' else ''
+        lines.append('[ ] {}{}'.format(tag, t['title']))
 
 done_by_date = {}
 for t in done:
@@ -64,8 +64,8 @@ for d in sorted(done_by_date.keys(), reverse=True):
         lines.append('')
     lines.append('{} -> {}'.format(d, label))
     for t in done_by_date[d]:
-        tag = ' [ZENDESK]' if t.get('type') == 'incident' else ''
-        lines.append('[X] {}{}'.format(t['title'], tag))
+        tag = '[ZENDESK] ' if t.get('type') == 'incident' else ''
+        lines.append('[X] {}{}'.format(tag, t['title']))
 
 print('\n'.join(lines))
 " "$NAME" | {
