@@ -84,14 +84,17 @@ else
 fi
 
 # ─── 3. Template (clona ou atualiza no cache) ─────────────────────────────────
+# GIT_SSL: tenta com SSL; em ambientes corporativos com proxy SSL, faz retry sem verificação
+_git() { git "$@" 2>/dev/null || GIT_SSL_NO_VERIFY=true git "$@"; }
+
 echo ""
 if [ -d "${CACHE_DIR}/.git" ]; then
     echo "Atualizando template..."
-    git -C "$CACHE_DIR" pull --quiet origin main || warn "Falha ao atualizar — usando versão em cache"
+    _git -C "$CACHE_DIR" pull --quiet origin main || warn "Falha ao atualizar — usando versão em cache"
     ok "template: $(git -C "$CACHE_DIR" rev-parse --short HEAD)"
 else
     echo "Baixando template..."
-    git clone --quiet --depth 1 "$REPO_URL" "$CACHE_DIR" \
+    _git clone --quiet --depth 1 "$REPO_URL" "$CACHE_DIR" \
         || fail "Falha ao clonar repositório. Verifique sua conexão e tente novamente."
     ok "template baixado"
 fi
