@@ -3,7 +3,7 @@
 # Não cria nem altera o versionamento do diretório de destino.
 #
 # Uso (one-liner — funciona em ambientes corporativos com proxy SSL):
-#   git clone --depth 1 https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git /tmp/cce-guide && bash /tmp/cce-guide/install.sh
+#   rm -rf /tmp/cce-guide && git clone --depth 1 https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git /tmp/cce-guide && bash /tmp/cce-guide/install.sh
 #
 # Uso com destino explícito:
 #   bash install.sh /caminho/destino

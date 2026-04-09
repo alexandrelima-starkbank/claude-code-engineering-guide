@@ -3,7 +3,7 @@
 ## Instalação
 
 ```bash
-git clone --depth 1 https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git /tmp/cce-guide && bash /tmp/cce-guide/install.sh
+rm -rf /tmp/cce-guide && git clone --depth 1 https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git /tmp/cce-guide && bash /tmp/cce-guide/install.sh
 ```
 
 Executa uma vez por projeto. Idempotente — pode re-executar para atualizar.
