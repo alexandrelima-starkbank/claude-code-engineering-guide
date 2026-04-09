@@ -27,13 +27,22 @@ import sys, json
 from datetime import date, timedelta
 
 name = sys.argv[1]
-today = str(date.today())
-yesterday = str(date.today() - timedelta(days=1))
+today = date.today()
+weekday = today.weekday()  # 0=segunda, 4=sexta, 5=sábado, 6=domingo
+
+# Na segunda-feira, "ontem" é sexta-feira
+if weekday == 0:
+    prev = today - timedelta(days=3)
+else:
+    prev = today - timedelta(days=1)
+
+today_str = str(today)
+prev_str = str(prev)
 tasks = json.load(sys.stdin)
 
 active = [t for t in tasks if t['status'] in ('em andamento', 'pendente')]
 done = [t for t in tasks if t['status'] in ('concluido', 'concluído')
-        and t.get('updatedAt', '')[:10] in (today, yesterday)]
+        and t.get('updatedAt', '')[:10] in (today_str, prev_str)]
 
 def sort_key(t):
     return ({'em andamento': 0, 'pendente': 1}.get(t['status'], 9), t['id'])
@@ -45,10 +54,12 @@ if not active and not done:
     print('EMPTY')
     sys.exit(0)
 
+prev_label = 'sexta-feira' if weekday == 0 else 'ontem'
+
 lines = ['*Daily Report — {}*'.format(name), '']
 
 if active:
-    lines.append('{} -> hoje'.format(today))
+    lines.append('{} -> hoje'.format(today_str))
     for t in active:
         tag = '[ZENDESK] ' if t.get('type') == 'incident' else ''
         lines.append('[ ] {}{}'.format(tag, t['title']))
@@ -59,7 +70,7 @@ for t in done:
     done_by_date.setdefault(d, []).append(t)
 
 for d in sorted(done_by_date.keys(), reverse=True):
-    label = 'hoje' if d == today else 'ontem' if d == yesterday else d
+    label = 'hoje' if d == today_str else prev_label if d == prev_str else d
     if lines:
         lines.append('')
     lines.append('{} -> {}'.format(d, label))
@@ -71,7 +82,6 @@ print('\n'.join(lines))
 " "$NAME" | {
     read -r -d '' MESSAGE || true
     if [ "$MESSAGE" = "EMPTY" ]; then
-        echo "Nenhuma atividade para reportar."
         exit 0
     fi
     PAYLOAD=$(python3 -c "import json, sys; print(json.dumps({'text': sys.argv[1]}))" "$MESSAGE")
