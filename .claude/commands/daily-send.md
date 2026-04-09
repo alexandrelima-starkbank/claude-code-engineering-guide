@@ -20,10 +20,13 @@ if [ -z "$WEBHOOK_URL" ]; then
     exit 1
 fi
 
+NAME=$(git config user.name 2>/dev/null || echo "Engenheiro")
+
 pipeline task list --format json | python3 -c "
-import sys, json, subprocess, os
+import sys, json
 from datetime import date, timedelta
 
+name = sys.argv[1]
 today = str(date.today())
 yesterday = str(date.today() - timedelta(days=1))
 tasks = json.load(sys.stdin)
@@ -42,7 +45,7 @@ if not active and not done:
     print('EMPTY')
     sys.exit(0)
 
-lines = []
+lines = ['*Daily Report — {}*'.format(name), '']
 
 if active:
     lines.append('{} -> hoje'.format(today))
@@ -63,7 +66,7 @@ for d in sorted(done_by_date.keys(), reverse=True):
         lines.append('[X] {}'.format(t['title']))
 
 print('\n'.join(lines))
-" | {
+" "$NAME" | {
     read -r -d '' MESSAGE || true
     if [ "$MESSAGE" = "EMPTY" ]; then
         echo "Nenhuma atividade para reportar."
