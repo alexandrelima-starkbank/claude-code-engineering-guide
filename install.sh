@@ -2,8 +2,9 @@
 # install.sh — instala o ecossistema Claude Code em qualquer diretório.
 # Não cria nem altera o versionamento do diretório de destino.
 #
-# Uso direto (sem clonar o repositório):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/alexandrelima-starkbank/claude-code-engineering-guide/main/install.sh)
+# Uso (recomendado — funciona em ambientes corporativos com proxy SSL):
+#   git clone https://github.com/alexandrelima-starkbank/claude-code-engineering-guide.git && \
+#     bash claude-code-engineering-guide/install.sh
 #
 # Uso com destino explícito:
 #   bash install.sh /caminho/destino
