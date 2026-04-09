@@ -107,7 +107,8 @@ antes de perguntar. Se ChromaDB não estiver disponível: prosseguir para entrev
 Após confirmação do engenheiro, criar task e rotear para o pipeline:
 
 ```bash
-pipeline task create --title "<título>" [--project "<projeto>"]   # → T<N>
+pipeline task create --title "<título>" --type <intent> [--project "<projeto>"]   # → T<N>
+# intent: feature | bug | incident | refactor
 ```
 
 **Responsabilidades autônomas do modelo a partir daí:**

@@ -71,7 +71,7 @@ def task():
 @click.option("--project", "project_name", default=None, help="Nome do projeto. Detecta via git se omitido.")
 @click.option("--title", required=True, help="Título da tarefa.")
 @click.option("--description", default=None)
-@click.option("--type", "task_type", default="feature", type=click.Choice(["feature", "incident"]))
+@click.option("--type", "task_type", default="feature", type=click.Choice(["feature", "bug", "incident", "refactor"]))
 def taskCreate(project_name, title, description, task_type):
     projectId = ensureProject(project_name) if project_name else detectProject()
     taskId = createTask(projectId, title, description, task_type)
