@@ -88,7 +88,7 @@ antes de perguntar. Se ChromaDB não estiver disponível: prosseguir para entrev
 
 ### 3. Entrevistar até artefato satisfatório
 
-- Máximo 3 perguntas por rodada — não interrogar, conversar
+- Perguntar apenas o necessário para eliminar ambiguidade — parar quando o artefato estiver completo e sem lacunas
 - Mostrar artefato provisional enquanto entrevista ("isso é o que entendi — está correto?")
 - Aguardar confirmação explícita antes de avançar
 
