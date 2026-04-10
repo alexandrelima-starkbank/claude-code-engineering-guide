@@ -1,5 +1,5 @@
 #!/bin/bash
-# UserPromptSubmit — verifica update na primeira mensagem de cada sessão.
+# UserPromptSubmit — verifica se há atualização disponível na primeira mensagem da sessão.
 # Disparado pela flag criada pelo hook SessionStart (mark-session-start.sh).
 
 FLAG="${HOME}/.claude/pipeline/.check-update-pending"
