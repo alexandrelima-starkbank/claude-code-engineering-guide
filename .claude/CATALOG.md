@@ -57,7 +57,7 @@ Protocolo completo: `CLAUDE.md → Intake Protocol`
 
 | Entry point | Quando usar | Precisa de | Produz |
 |---|---|---|---|
-| `/blast-radius` | Avaliar impacto pontual de uma mudança | Alvo (campo, enum, função) | Serviços afetados, risco e ordem de deploy |
+| `/blast-radius` | Avaliar impacto pontual de uma mudança | Alvo (campo, enum, função) | Serviços afetados, risco e ordem de deploy — **fan-out paralelo por serviço** |
 | `/investigate` | Rastrear a causa de um comportamento específico | Descrição do problema | Fluxo de dados, arquivos envolvidos, sugestão de fix |
 | `/cross-service-analysis` | Análise completa de impacto cross-service | Descrição da mudança | Análise detalhada + plano de deploy coordenado |
 
@@ -69,7 +69,8 @@ Protocolo completo: `CLAUDE.md → Intake Protocol`
 |---|---|---|
 | `requirements-analyst` | `/requirements` em casos complexos | Valida completude e ambiguidade de requisitos EARS |
 | `support-investigator` | `/support` Fase 2 | Investigação cross-service, root cause com confiança |
-| `code-reviewer` | `/review`, `verify-delivery` | Review em 3 tiers: MUST / SHOULD / NITPICK |
-| `test-runner` | Qualquer fase de teste | Executa suite e reporta falhas de forma concisa |
+| `code-reviewer` | `/review`, `/verify-delivery` — em paralelo com `test-runner` | Review em 3 tiers: MUST / SHOULD / NITPICK |
+| `test-runner` | `/verify-delivery` — em paralelo com `code-reviewer` | Executa suite e reporta falhas de forma concisa |
+| `service-impact-analyzer` | `/blast-radius` — N instâncias em paralelo, uma por serviço | Varre um serviço e retorna bloco estruturado de impacto |
 | `test-reviewer` | Antes de concluir qualquer tarefa | Avalia qualidade de assertions: WEAK / ACCEPTABLE / STRONG |
 | `tasks-maintainer` | Final de sessão ou conclusão de tarefa | Atualiza TASKS.md e move concluídos para HISTORY_TASKS.md |

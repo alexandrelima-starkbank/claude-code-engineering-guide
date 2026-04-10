@@ -4,31 +4,67 @@ allowed-tools: Read, Grep, Glob
 ---
 # Blast Radius: $ARGUMENTS
 
-1. Read `.claude/skills/cross-service-analysis/SERVICE_MAP.md`.
-   - The file is **not configured** if it does not exist or if the `## Diretórios dos Serviços` section still contains `<diretório-do-service-` placeholder paths.
-   - If not configured: restrict the search to the current repository only and note in the output: `SERVICE_MAP not configured — analysis limited to current repository. Run ./configure.sh to enable cross-service analysis.`
-   - If configured: use the service directories listed under `## Diretórios dos Serviços`.
+## Passo 1 — Ler SERVICE_MAP
 
-2. Identify what is being changed: field, enum, queue message schema, API contract, or function signature
+Read `.claude/skills/cross-service-analysis/SERVICE_MAP.md`.
 
-3. Grep ALL service directories for every reference to the target
+A análise é **cross-service** se o arquivo existir e `## Diretórios dos Serviços` não contiver
+placeholders `<diretório-do-service-`. Caso contrário: análise restrita ao repositório atual
+(use Grep diretamente e pule o fan-out paralelo).
 
-4. For each hit, classify:
-   - How it's used (reads, writes, validates, passes through)
-   - What breaks if this service is NOT updated
-   - Whether it's in a critical path (auth, financial mutation, billing)
+---
 
-5. If SERVICE_MAP is configured: determine safe deployment order using the rules in `## Regras de Deploy`.
-   If not configured (single-repo mode): skip this step and omit DEPLOY ORDER from the output.
+## Passo 2 — Fan-out paralelo (apenas se SERVICE_MAP configurado)
 
-6. Output:
-   ```
-   TARGET: <what changes>
-   RISK: LOW | MEDIUM | HIGH | CRITICAL
+Extraia os serviços de `## Diretórios dos Serviços`. Para cada serviço, monte os argumentos:
 
-   AFFECTED: <service> — <files> — <break risk>
+```
+TARGET=<alvo>  SERVICE_NAME=<nome>  SERVICE_PATH=<caminho>
+```
 
-   DEPLOY ORDER:          ← omit if single-repo mode
-     1. <service> — <reason>
-     2. <service> — <reason>
-   ```
+**Dispare TODOS os agentes em um único lote — não sequencialmente.**
+Invoque um `service-impact-analyzer` por serviço simultaneamente, antes de processar
+qualquer resultado. Aguarde todos retornarem para então sintetizar.
+
+Exemplo com 3 serviços:
+```
+Use the service-impact-analyzer agent to analyze: TARGET=CardStatus SERVICE_NAME=corporate SERVICE_PATH=~/projects/corporate
+Use the service-impact-analyzer agent to analyze: TARGET=CardStatus SERVICE_NAME=billing SERVICE_PATH=~/projects/billing
+Use the service-impact-analyzer agent to analyze: TARGET=CardStatus SERVICE_NAME=ledger SERVICE_PATH=~/projects/ledger
+```
+
+Se SERVICE_MAP não configurado: grep no repositório atual e note no output:
+`SERVICE_MAP not configured — analysis limited to current repository. Run ./configure.sh to enable cross-service analysis.`
+
+---
+
+## Passo 3 — Sintetizar resultados
+
+Após receber os blocos de todos os agentes:
+
+1. **RISK global** — mapeie o maior BREAK_RISK individual:
+   - Qualquer serviço em caminho crítico (auth, financeiro, billing) → CRITICAL
+   - HIGH em qualquer serviço → HIGH
+   - Apenas MEDIUM → MEDIUM
+   - Apenas LOW/NONE → LOW
+
+2. **AFFECTED** — liste apenas serviços com `STATUS: AFFECTED`.
+
+3. **DEPLOY ORDER** — aplique as `## Regras de Deploy` do SERVICE_MAP.
+   Omita esta seção em modo single-repo.
+
+---
+
+## Formato de saída
+
+```
+TARGET: <o que muda>
+RISK: LOW | MEDIUM | HIGH | CRITICAL
+
+AFFECTED:
+  <serviço> — <arquivos> — <break risk>
+
+DEPLOY ORDER:
+  1. <serviço> — <motivo>
+  2. <serviço> — <motivo>
+```
