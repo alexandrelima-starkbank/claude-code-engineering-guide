@@ -32,7 +32,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && bash .claude/hooks/check-for-update.sh'",
+            "command": "bash ~/.claude/hooks/check-for-update.sh",
             "timeout": 10000
           }
         ]
