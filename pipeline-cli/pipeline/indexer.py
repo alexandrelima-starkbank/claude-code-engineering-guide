@@ -1,130 +1,286 @@
+import ast
 from pathlib import Path
+
 from . import vector
 from .db import ensureProject
 
-# Arquivos que indicam que um subdiretório é um projeto
+# ─── Padrões de exclusão ──────────────────────────────────────────────────────
+
+SKIP_DIRS = {
+    "__pycache__", ".git", ".venv", "venv", "env",
+    "migrations", "node_modules", ".mypy_cache", ".pytest_cache",
+    "dist", "build", "eggs", ".eggs",
+}
+
+SKIP_FILE_SUFFIXES = {"_pb2.py", "_pb2_grpc.py"}  # protobuf gerado
+
+MAX_BODY_LINES = 60  # limite por unidade para não sobrecarregar o embedding
+
+
+# ─── AST extraction ───────────────────────────────────────────────────────────
+
+def _sourceSlice(lines, node):
+    start = node.lineno - 1
+    end = min(getattr(node, "end_lineno", start + MAX_BODY_LINES), start + MAX_BODY_LINES)
+    return "\n".join(lines[start:end])
+
+
+def _classHeader(lines, classNode):
+    """Primeiras linhas da classe — suficiente para capturar bases e atributos."""
+    start = classNode.lineno - 1
+    end = min(start + 8, getattr(classNode, "end_lineno", start + 8))
+    return "\n".join(lines[start:end])
+
+
+def extractUnits(filePath, projectRoot=None):
+    """
+    Extrai unidades semânticas de um arquivo Python via AST.
+    Retorna lista de dicts com: id, qualifiedName, type, file, line, document, metadata.
+    """
+    path = Path(filePath)
+
+    # Exclusão por nome de arquivo
+    if any(path.name.endswith(sfx) for sfx in SKIP_FILE_SUFFIXES):
+        return []
+
+    try:
+        source = path.read_text(encoding="utf-8", errors="ignore")
+        tree = ast.parse(source, filename=str(path))
+    except SyntaxError:
+        return []
+    except Exception:
+        return []
+
+    relPath = str(path.relative_to(projectRoot)) if projectRoot else str(path)
+    lines = source.splitlines()
+    units = []
+
+    for node in ast.iter_child_nodes(tree):
+
+        # ── Função de módulo ──────────────────────────────────────────────────
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = _sourceSlice(lines, node)
+            units.append(_makeUnit(
+                unitId="{0}:{1}".format(relPath, node.lineno),
+                qualifiedName=node.name,
+                unitType="function",
+                relPath=relPath,
+                line=node.lineno,
+                document="function {0}  [{1}:{2}]\n{3}".format(
+                    node.name, relPath, node.lineno, body
+                ),
+                extra={},
+            ))
+
+        # ── Classe + seus métodos ─────────────────────────────────────────────
+        elif isinstance(node, ast.ClassDef):
+            classHeader = _classHeader(lines, node)
+            units.append(_makeUnit(
+                unitId="{0}:{1}".format(relPath, node.lineno),
+                qualifiedName=node.name,
+                unitType="class",
+                relPath=relPath,
+                line=node.lineno,
+                document="class {0}  [{1}:{2}]\n{3}".format(
+                    node.name, relPath, node.lineno, classHeader
+                ),
+                extra={},
+            ))
+
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    body = _sourceSlice(lines, child)
+                    qualifiedName = "{0}.{1}".format(node.name, child.name)
+                    units.append(_makeUnit(
+                        unitId="{0}:{1}".format(relPath, child.lineno),
+                        qualifiedName=qualifiedName,
+                        unitType="method",
+                        relPath=relPath,
+                        line=child.lineno,
+                        document="class {0} > method {1}  [{2}:{3}]\n{4}".format(
+                            node.name, child.name, relPath, child.lineno, body
+                        ),
+                        extra={"className": node.name},
+                    ))
+
+    return units
+
+
+def _makeUnit(unitId, qualifiedName, unitType, relPath, line, document, extra):
+    meta = {
+        "qualifiedName": qualifiedName,
+        "type": unitType,
+        "file": relPath,
+        "line": line,
+    }
+    meta.update(extra)
+    return {
+        "id": unitId,
+        "qualifiedName": qualifiedName,
+        "type": unitType,
+        "file": relPath,
+        "line": line,
+        "document": document,
+        "metadata": meta,
+    }
+
+
+# ─── Indexação ────────────────────────────────────────────────────────────────
+
+def indexFile(filePath, projectId, projectRoot=None):
+    """Indexa um único arquivo Python. Retorna número de unidades indexadas."""
+    if not vector.isAvailable():
+        return 0
+
+    units = extractUnits(filePath, projectRoot)
+    if not units:
+        return 0
+
+    client = vector.getClient()
+    col = client.get_or_create_collection("source_code")
+
+    ids = ["{0}:{1}".format(projectId, u["id"]) for u in units]
+    docs = [u["document"] for u in units]
+    metas = [{**u["metadata"], "projectId": projectId} for u in units]
+
+    col.upsert(documents=docs, ids=ids, metadatas=metas)
+    return len(units)
+
+
+def indexProject(projectPath, projectId, verbose=False):
+    """Indexa todos os arquivos Python de um projeto. Retorna total de unidades."""
+    root = Path(projectPath).resolve()
+    total = 0
+
+    for pyFile in sorted(root.rglob("*.py")):
+        # Pula diretórios excluídos
+        if any(part in SKIP_DIRS for part in pyFile.parts):
+            continue
+        n = indexFile(pyFile, projectId, projectRoot=root)
+        total += n
+        if verbose and n > 0:
+            rel = pyFile.relative_to(root)
+            print("  {0} ({1} unidades)".format(rel, n))
+
+    return total
+
+
+# ─── Descoberta de projetos ───────────────────────────────────────────────────
+
 PROJECT_SIGNALS = [
     ".git", "pyproject.toml", "setup.py", "setup.cfg",
     "package.json", "Makefile", "requirements.txt",
 ]
 
-# Arquivos de contexto a extrair (em ordem de prioridade)
-CONTEXT_FILES = ["README.md", "CLAUDE.md", "ARCHITECTURE.md", "docs/architecture.md"]
-
-# Extensões de código para inferir linguagem
-LANG_EXTENSIONS = {
-    ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
-    ".go": "Go", ".java": "Java", ".rb": "Ruby", ".rs": "Rust",
-}
+CONTEXT_FILES = ["README.md", "CLAUDE.md", "ARCHITECTURE.md"]
 
 
 def _isProject(path):
     return any((path / signal).exists() for signal in PROJECT_SIGNALS)
 
 
-def _extractContext(projectPath):
-    lines = []
+def _extractDocs(projectPath):
+    """Extrai documentação textual do projeto (README, CLAUDE.md, etc.)."""
+    parts = []
     for filename in CONTEXT_FILES:
         f = projectPath / filename
         if f.exists():
             try:
                 content = f.read_text(encoding="utf-8", errors="ignore")[:2000]
-                lines.append("[{0}]\n{1}".format(filename, content.strip()))
+                parts.append("[{0}]\n{1}".format(filename, content.strip()))
             except Exception:
                 pass
-    return "\n\n".join(lines) if lines else None
-
-
-def _inferLanguage(projectPath):
-    counts = {}
-    for ext, lang in LANG_EXTENSIONS.items():
-        count = len(list(projectPath.rglob("*" + ext)))
-        if count:
-            counts[lang] = count
-    if not counts:
-        return None
-    return max(counts, key=counts.get)
-
-
-def _gitRemote(projectPath):
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["git", "-C", str(projectPath), "remote", "get-url", "origin"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception:
-        pass
-    return None
+    return "\n\n".join(parts) if parts else None
 
 
 def indexDirectory(targetDir, verbose=False):
+    """
+    Descobre projetos em targetDir, indexa docs no ChromaDB (coleção context)
+    e código-fonte (coleção source_code). Retorna lista de resultados.
+    """
     targetPath = Path(targetDir).resolve()
-    results = []
-
     candidates = [p for p in targetPath.iterdir() if p.is_dir() and not p.name.startswith(".")]
     projects = [p for p in candidates if _isProject(p)]
 
-    if not projects:
-        return results
-
+    results = []
     for projectPath in sorted(projects, key=lambda p: p.name):
         name = projectPath.name
         projectId = ensureProject(name, str(projectPath))
 
-        context = _extractContext(projectPath)
-        lang = _inferLanguage(projectPath)
-        remote = _gitRemote(projectPath)
-
-        parts = ["Projeto: {0}".format(name)]
-        if lang:
-            parts.append("Linguagem principal: {0}".format(lang))
-        if remote:
-            parts.append("Repositório: {0}".format(remote))
-        if context:
-            parts.append(context)
-
-        fullContext = "\n".join(parts)
-
-        if vector.isAvailable():
+        # Docs (README, CLAUDE.md) → coleção context
+        docs = _extractDocs(projectPath)
+        if docs and vector.isAvailable():
             vector.addContext(
-                text=fullContext,
+                text=docs,
                 contextType="context",
                 projectId=projectId,
             )
 
+        # Código-fonte Python → coleção source_code
+        codeUnits = indexProject(projectPath, projectId, verbose=verbose)
+
+        # Instala post-commit hook no projeto
+        _installPostCommitHook(projectPath)
+
         results.append({
             "name": name,
             "projectId": projectId,
-            "lang": lang,
-            "hasReadme": (projectPath / "README.md").exists(),
-            "hasClaudeMd": (projectPath / "CLAUDE.md").exists(),
+            "codeUnits": codeUnits,
+            "hasDocs": docs is not None,
             "indexed": vector.isAvailable(),
         })
 
         if verbose:
-            print("  [{0}] {1}{2}".format(
-                "✓" if vector.isAvailable() else "~",
-                name,
-                " ({0})".format(lang) if lang else "",
-            ))
+            status = "✓" if vector.isAvailable() else "~"
+            print("[{0}] {1} — {2} unidades de código".format(status, name, codeUnits))
 
     return results
+
+
+def _installPostCommitHook(projectPath):
+    """Instala o hook post-commit no .git/hooks/ do projeto."""
+    import shutil
+    gitHooks = Path(projectPath) / ".git" / "hooks"
+    if not gitHooks.exists():
+        return
+    hookSource = Path(__file__).parent.parent.parent / ".claude" / "hooks" / "post-commit.sh"
+    if not hookSource.exists():
+        # Fallback: gera o hook inline
+        hookContent = (
+            "#!/bin/bash\n"
+            "if ! command -v pipeline &>/dev/null; then exit 0; fi\n"
+            "ROOT=$(git rev-parse --show-toplevel 2>/dev/null)\n"
+            "[ -z \"$ROOT\" ] && exit 0\n"
+            "MODIFIED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep '\\.py$')\n"
+            "[ -z \"$MODIFIED\" ] && exit 0\n"
+            "for file in $MODIFIED; do\n"
+            "    ABS=\"${ROOT}/${file}\"\n"
+            "    [ -f \"$ABS\" ] && pipeline index-file \"$ABS\" 2>/dev/null || true\n"
+            "done\n"
+        )
+        hookDest = gitHooks / "post-commit"
+        hookDest.write_text(hookContent)
+        hookDest.chmod(0o755)
+    else:
+        hookDest = gitHooks / "post-commit"
+        shutil.copy2(str(hookSource), str(hookDest))
+        hookDest.chmod(0o755)
 
 
 def generateContextSection(results):
     if not results:
         return "<!-- Nenhum projeto detectado. Descreva aqui o contexto do workspace. -->"
-
-    lines = ["Workspace com {0} projeto(s) indexado(s) no ChromaDB:".format(len(results)), ""]
+    lines = [
+        "Workspace com {0} projeto(s) indexado(s) no ChromaDB:".format(len(results)),
+        "",
+    ]
     for r in results:
-        lang = " ({0})".format(r["lang"]) if r["lang"] else ""
-        lines.append("- **{0}**{1}".format(r["name"], lang))
-
+        lines.append("- **{0}** — {1} unidades de código indexadas".format(
+            r["name"], r["codeUnits"]
+        ))
     lines += [
         "",
-        "Use `pipeline context search \"<termo>\"` para buscar contexto relevante.",
+        "Use `pipeline search \"<termo>\"` para busca semântica no código.",
+        "Use `pipeline context search \"<termo>\"` para decisões e requisitos anteriores.",
     ]
     return "\n".join(lines)

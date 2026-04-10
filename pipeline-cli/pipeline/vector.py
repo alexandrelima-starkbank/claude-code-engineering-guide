@@ -15,6 +15,42 @@ def getClient():
 def isAvailable():
     return getClient() is not None
 
+
+# --- Source code ---
+
+def searchCode(query, projectId=None, n=10):
+    client = getClient()
+    if not client:
+        return []
+    try:
+        col = client.get_collection("source_code")
+    except Exception:
+        return []
+    count = col.count()
+    if count == 0:
+        return []
+    where = {"projectId": projectId} if projectId else None
+    results = col.query(
+        query_texts=[query],
+        n_results=min(n, count),
+        where=where,
+        include=["documents", "metadatas", "distances"],
+    )
+    if not results["documents"][0]:
+        return []
+    return [
+        {
+            "document": doc,
+            "metadata": meta,
+            "distance": dist,
+        }
+        for doc, meta, dist in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        )
+    ]
+
 # --- Requirements ---
 
 def addRequirement(taskId, reqId, text, projectId):

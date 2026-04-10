@@ -228,7 +228,24 @@ GITIGNORE="${TARGET}/.gitignore"
 } >> "$GITIGNORE"
 ok ".gitignore atualizado"
 
-# ─── 7. Configura pyproject.toml / mutmut.toml / SERVICE_MAP ─────────────────
+# ─── 7. Indexação semântica do código-fonte ───────────────────────────────────
+echo ""
+echo "── Índice semântico (ChromaDB) ───────────────────────────────────────────────"
+if command -v pipeline &>/dev/null; then
+    SUBDIRS=$(find "$TARGET" -maxdepth 1 -mindepth 1 -type d ! -name '.*' 2>/dev/null)
+    if [ -n "$SUBDIRS" ]; then
+        echo "Indexando projetos em ${TARGET}..."
+        pipeline index "$TARGET" --update-claude-md 2>/dev/null \
+            && ok "índice semântico criado" \
+            || warn "indexação parcial — verifique com: pipeline index ${TARGET}"
+    else
+        ok "nenhum subprojeto encontrado — índice vazio"
+    fi
+else
+    warn "pipeline CLI não disponível — indexação pulada"
+fi
+
+# ─── 8. Configura pyproject.toml / mutmut.toml / SERVICE_MAP ─────────────────
 echo ""
 "${TARGET}/configure.sh"
 

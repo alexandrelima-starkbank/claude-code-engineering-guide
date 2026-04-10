@@ -17,7 +17,7 @@ from .db import (
 )
 from .export import generateTasksMd, formatTask
 from . import vector
-from .indexer import indexDirectory, generateContextSection
+from .indexer import indexDirectory, generateContextSection, indexFile, indexProject
 
 
 def autoRegenTasksMd():
@@ -495,30 +495,79 @@ def contextSearch(query, project_name, context_type, n):
 @click.option("--update-claude-md", is_flag=True, default=False,
               help="Atualiza a seção Contexto do CLAUDE.md no diretório.")
 def indexCmd(directory, update_claude_md):
-    """Indexa projetos de um diretório no ChromaDB."""
+    """Descobre projetos em directory e indexa código-fonte + docs no ChromaDB."""
     from pathlib import Path
+    if not vector.isAvailable():
+        click.echo("ChromaDB não disponível. Instale: pip install chromadb", err=True)
+        sys.exit(1)
     results = indexDirectory(directory, verbose=True)
     if not results:
         click.echo("Nenhum projeto encontrado em {0}.".format(directory))
         return
-    click.echo("\n{0} projeto(s) indexado(s).".format(len(results)))
+    total = sum(r["codeUnits"] for r in results)
+    click.echo("\n{0} projeto(s) — {1} unidades indexadas.".format(len(results), total))
     if update_claude_md:
         claudeMdPath = Path(directory) / "CLAUDE.md"
         if claudeMdPath.exists():
+            import re
             content = claudeMdPath.read_text(encoding="utf-8")
             section = generateContextSection(results)
-            marker = "<!-- Descreva aqui o contexto do workspace. -->"
-            placeholder = "<!-- Nenhum projeto detectado. Descreva aqui o contexto do workspace. -->"
-            if marker in content:
-                content = content.replace(marker, section)
-            elif placeholder in content:
-                content = content.replace(placeholder, section)
-            else:
-                # Substitui qualquer comentário HTML no bloco Contexto
-                import re
-                content = re.sub(r'<!--.*?-->', section, content, count=1, flags=re.DOTALL)
+            content = re.sub(r'<!--.*?-->', section, content, count=1, flags=re.DOTALL)
             claudeMdPath.write_text(content, encoding="utf-8")
             click.echo("CLAUDE.md atualizado em {0}.".format(directory))
+
+
+@cli.command("index-file")
+@click.argument("file_path")
+@click.option("--project", "project_name", default=None)
+def indexFileCmd(file_path, project_name):
+    """Re-indexa um único arquivo Python (chamado pelo hook post-commit)."""
+    from pathlib import Path
+    if not vector.isAvailable():
+        sys.exit(0)  # silencioso — chamado por hook
+    path = Path(file_path).resolve()
+    if not path.exists() or path.suffix != ".py":
+        sys.exit(0)
+    # Detecta projeto pelo git root
+    import subprocess
+    result = subprocess.run(
+        ["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"],
+        capture_output=True, text=True,
+    )
+    projectRoot = Path(result.stdout.strip()) if result.returncode == 0 else path.parent
+    name = project_name or projectRoot.name
+    projectId = ensureProject(name, str(projectRoot))
+    n = indexFile(path, projectId, projectRoot=projectRoot)
+    click.echo("Re-indexado: {0} ({1} unidades)".format(path.name, n))
+
+
+@cli.command("search")
+@click.argument("query")
+@click.option("--project", "project_name", default=None)
+@click.option("--n", default=10, type=int, help="Número de resultados.")
+def searchCmd(query, project_name, n):
+    """Busca semântica no código-fonte indexado."""
+    if not vector.isAvailable():
+        click.echo("ChromaDB não disponível.", err=True)
+        sys.exit(1)
+    projectId = ensureProject(project_name) if project_name else None
+    results = vector.searchCode(query, projectId=projectId, n=n)
+    if not results:
+        click.echo("Nenhum resultado para: {0}".format(query))
+        return
+    click.echo("")
+    for r in results:
+        meta = r["metadata"]
+        click.echo("{0}:{1}  {2}  [{3}]".format(
+            meta.get("file", "?"),
+            meta.get("line", "?"),
+            meta.get("qualifiedName", "?"),
+            meta.get("type", "?"),
+        ))
+        # Preview: primeira linha não-vazia do documento após o header
+        lines = [l for l in r["document"].splitlines()[1:] if l.strip()]
+        if lines:
+            click.echo("    {0}".format(lines[0][:100]))
 
 
 # ─── EXPORT ───────────────────────────────────────────────────────────────────
