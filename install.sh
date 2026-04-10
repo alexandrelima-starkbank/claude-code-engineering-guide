@@ -147,6 +147,61 @@ else
     warn "pipeline-cli não encontrado no template — pulando"
 fi
 
+# ─── 4b. Hook global de update check (~/.claude/) ────────────────────────────
+echo ""
+echo "── Hook global de update check ──────────────────────────────────────────────"
+
+GLOBAL_CLAUDE_DIR="${HOME}/.claude"
+GLOBAL_HOOKS_DIR="${GLOBAL_CLAUDE_DIR}/hooks"
+GLOBAL_SETTINGS="${GLOBAL_CLAUDE_DIR}/settings.json"
+UPDATE_HOOK_SRC="${CACHE_DIR}/.claude/hooks/check-for-update.sh"
+UPDATE_HOOK_DEST="${GLOBAL_HOOKS_DIR}/check-for-update.sh"
+
+mkdir -p "$GLOBAL_HOOKS_DIR"
+cp "$UPDATE_HOOK_SRC" "$UPDATE_HOOK_DEST" && chmod +x "$UPDATE_HOOK_DEST"
+ok "check-for-update.sh instalado em ${GLOBAL_HOOKS_DIR}"
+
+# Adiciona o hook em ~/.claude/settings.json se ainda não estiver lá
+HOOK_CMD="bash ~/.claude/hooks/check-for-update.sh"
+if [ ! -f "$GLOBAL_SETTINGS" ]; then
+    cat > "$GLOBAL_SETTINGS" <<'JSON'
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/check-for-update.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+    ok "~/.claude/settings.json criado com hook SessionStart"
+elif ! grep -q "check-for-update.sh" "$GLOBAL_SETTINGS" 2>/dev/null; then
+    python3 - <<PYEOF
+import json, sys
+path = "$GLOBAL_SETTINGS"
+with open(path) as f:
+    cfg = json.load(f)
+hooks = cfg.setdefault("hooks", {})
+sessionStart = hooks.setdefault("SessionStart", [{"hooks": []}])
+if not sessionStart:
+    sessionStart.append({"hooks": []})
+entry = {"type": "command", "command": "bash ~/.claude/hooks/check-for-update.sh", "timeout": 10000}
+sessionStart[0]["hooks"].append(entry)
+with open(path, "w") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+PYEOF
+    ok "hook SessionStart adicionado em ~/.claude/settings.json"
+else
+    ok "hook SessionStart já presente em ~/.claude/settings.json"
+fi
+
 # ─── 5. Copia arquivos para o destino ─────────────────────────────────────────
 TARGET="${1:-$(pwd)}"
 echo ""
