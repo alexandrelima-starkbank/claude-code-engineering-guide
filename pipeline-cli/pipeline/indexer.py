@@ -3,6 +3,7 @@ from pathlib import Path
 
 from . import vector
 from .db import ensureProject
+from .vector import getSourceCodeCollection
 
 # ─── Padrões de exclusão ──────────────────────────────────────────────────────
 
@@ -137,7 +138,7 @@ def indexFile(filePath, projectId, projectRoot=None):
         return 0
 
     client = vector.getClient()
-    col = client.get_or_create_collection("source_code")
+    col = getSourceCodeCollection(client, create=True)
 
     ids = ["{0}:{1}".format(projectId, u["id"]) for u in units]
     docs = [u["document"] for u in units]

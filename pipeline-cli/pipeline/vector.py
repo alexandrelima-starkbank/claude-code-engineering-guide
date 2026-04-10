@@ -3,6 +3,10 @@ from datetime import datetime
 
 CHROMA_PATH = Path.home() / ".claude" / "pipeline" / "chroma"
 
+# Jina v2/v3 incompatível com transformers>=5.x — usar CodeSearchNet distilroberta
+# (treinado especificamente para busca semântica em código-fonte)
+CODE_EMBEDDING_MODEL = "flax-sentence-embeddings/st-codesearch-distilroberta-base"
+
 def getClient():
     try:
         import chromadb
@@ -16,14 +20,32 @@ def isAvailable():
     return getClient() is not None
 
 
+def _getCodeEmbeddingFunction():
+    try:
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+        return SentenceTransformerEmbeddingFunction(model_name=CODE_EMBEDDING_MODEL)
+    except Exception:
+        return None
+
+
 # --- Source code ---
+
+def getSourceCodeCollection(client, create=False):
+    ef = _getCodeEmbeddingFunction()
+    kwargs = {"name": "source_code"}
+    if ef:
+        kwargs["embedding_function"] = ef
+    if create:
+        return client.get_or_create_collection(**kwargs)
+    return client.get_collection(**kwargs)
+
 
 def searchCode(query, projectId=None, n=10):
     client = getClient()
     if not client:
         return []
     try:
-        col = client.get_collection("source_code")
+        col = getSourceCodeCollection(client)
     except Exception:
         return []
     count = col.count()

@@ -136,6 +136,13 @@ if [ -d "$PIPELINE_SRC" ]; then
     else
         fail "chromadb não pode ser instalado — pip3 indisponível"
     fi
+
+    # sentence-transformers (modelo especializado para índice de código-fonte)
+    if [ -n "$PIP3" ]; then
+        $PIP3 install sentence-transformers --quiet 2>/dev/null \
+            && ok "sentence-transformers instalado" \
+            || warn "sentence-transformers — falha na instalação (tente: pip3 install sentence-transformers)"
+    fi
 else
     warn "pipeline-cli não encontrado no template — pulando"
 fi
