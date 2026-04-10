@@ -12,6 +12,7 @@
           {
             "type": "command",
             "command": "bash -c 'cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && bash .claude/hooks/enforce-intake-protocol.sh'",
+
             "timeout": 5000
           },
           {
@@ -34,6 +35,11 @@
             "type": "command",
             "command": "bash -c 'cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && bash .claude/hooks/inject-git-context.sh'",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/mark-session-start.sh",
+            "timeout": 3000
           }
         ]
       }
