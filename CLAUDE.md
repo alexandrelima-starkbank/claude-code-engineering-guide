@@ -142,6 +142,8 @@ Documentação formal da pipeline: `.claude/PIPELINE.md`
 
 ## Convenções de Código
 
+@CONVENTIONS.starkbank.md
+
 ### Nomenclatura
 
 **Esta codebase usa camelCase para tudo em Python — diferente do PEP 8.**

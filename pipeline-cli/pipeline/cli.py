@@ -17,6 +17,7 @@ from .db import (
 )
 from .export import generateTasksMd, formatTask
 from . import vector
+from .indexer import indexDirectory, generateContextSection
 
 
 def autoRegenTasksMd():
@@ -485,6 +486,39 @@ def contextSearch(query, project_name, context_type, n):
         for r in ctxResults:
             meta = r["metadata"]
             click.echo("  [{0}] {1}".format(meta.get("type", "?"), r["text"][:150]))
+
+
+# ─── INDEX ────────────────────────────────────────────────────────────────────
+
+@cli.command("index")
+@click.argument("directory", default=".")
+@click.option("--update-claude-md", is_flag=True, default=False,
+              help="Atualiza a seção Contexto do CLAUDE.md no diretório.")
+def indexCmd(directory, update_claude_md):
+    """Indexa projetos de um diretório no ChromaDB."""
+    from pathlib import Path
+    results = indexDirectory(directory, verbose=True)
+    if not results:
+        click.echo("Nenhum projeto encontrado em {0}.".format(directory))
+        return
+    click.echo("\n{0} projeto(s) indexado(s).".format(len(results)))
+    if update_claude_md:
+        claudeMdPath = Path(directory) / "CLAUDE.md"
+        if claudeMdPath.exists():
+            content = claudeMdPath.read_text(encoding="utf-8")
+            section = generateContextSection(results)
+            marker = "<!-- Descreva aqui o contexto do workspace. -->"
+            placeholder = "<!-- Nenhum projeto detectado. Descreva aqui o contexto do workspace. -->"
+            if marker in content:
+                content = content.replace(marker, section)
+            elif placeholder in content:
+                content = content.replace(placeholder, section)
+            else:
+                # Substitui qualquer comentário HTML no bloco Contexto
+                import re
+                content = re.sub(r'<!--.*?-->', section, content, count=1, flags=re.DOTALL)
+            claudeMdPath.write_text(content, encoding="utf-8")
+            click.echo("CLAUDE.md atualizado em {0}.".format(directory))
 
 
 # ─── EXPORT ───────────────────────────────────────────────────────────────────

@@ -185,6 +185,14 @@ else
     ok "CLAUDE.md já existe — mantido"
 fi
 
+# CONVENTIONS.md — não sobrescreve (curadoria do time)
+if [ ! -f "${TARGET}/CONVENTIONS.md" ]; then
+    cp "${CACHE_DIR}/CONVENTIONS.starkbank.md" "${TARGET}/CONVENTIONS.md"
+    ok "CONVENTIONS.md criado (Starkbank defaults)"
+else
+    ok "CONVENTIONS.md já existe — mantido"
+fi
+
 ok "arquivos instalados em ${TARGET}"
 
 # ─── 6. TASKS.md — gerado pelo pipeline DB ────────────────────────────────────
