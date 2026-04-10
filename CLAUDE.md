@@ -78,14 +78,19 @@ existente, conduz uma entrevista e roteia internamente para o pipeline adequado.
 
 ### 2. Consultar contexto antes de perguntar
 
-Antes da entrevista, verificar se há contexto relevante no banco semântico:
+Antes da entrevista, verificar o banco semântico em paralelo:
 
 ```bash
+# Decisões arquiteturais e requisitos anteriores
 pipeline context search "<resumo da solicitação>"
+
+# Código-fonte relevante (para feature, bug, investigation, refactor)
+pipeline search "<termos-chave do problema ou feature>" --n 8
 ```
 
-Se encontrar decisões arquiteturais ou requisitos similares: apresentar ao engenheiro
-antes de perguntar. Se ChromaDB não estiver disponível: prosseguir para entrevista.
+Se encontrar decisões arquiteturais, requisitos similares ou código diretamente
+relacionado: apresentar ao engenheiro antes de perguntar — pode eliminar ambiguidades
+sem precisar de entrevista. Se ChromaDB não estiver disponível: prosseguir para entrevista.
 
 ### 3. Entrevistar até artefato satisfatório
 

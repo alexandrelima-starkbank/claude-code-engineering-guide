@@ -555,7 +555,6 @@ def searchCmd(query, project_name, n):
     if not results:
         click.echo("Nenhum resultado para: {0}".format(query))
         return
-    click.echo("")
     for r in results:
         meta = r["metadata"]
         click.echo("{0}:{1}  {2}  [{3}]".format(
@@ -564,7 +563,6 @@ def searchCmd(query, project_name, n):
             meta.get("qualifiedName", "?"),
             meta.get("type", "?"),
         ))
-        # Preview: primeira linha não-vazia do documento após o header
         lines = [l for l in r["document"].splitlines()[1:] if l.strip()]
         if lines:
             click.echo("    {0}".format(lines[0][:100]))

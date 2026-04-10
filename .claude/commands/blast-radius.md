@@ -4,9 +4,19 @@ allowed-tools: Read, Grep, Glob
 ---
 # Blast Radius: $ARGUMENTS
 
-## Passo 1 — Ler SERVICE_MAP
+## Passo 1 — Ler SERVICE_MAP e buscar candidatos
 
 Read `.claude/skills/cross-service-analysis/SERVICE_MAP.md`.
+
+Em seguida, buscar no índice semântico para identificar os arquivos mais prováveis:
+
+```bash
+pipeline search "<alvo>" --n 15
+```
+
+Use os resultados para informar o passo de fan-out: se o índice já indica que o alvo
+aparece em serviços específicos, priorize esses serviços nos agentes. Se o índice não
+retornar nada relevante, prossiga com a varredura completa.
 
 A análise é **cross-service** se o arquivo existir e `## Diretórios dos Serviços` não contiver
 placeholders `<diretório-do-service-`. Caso contrário: análise restrita ao repositório atual

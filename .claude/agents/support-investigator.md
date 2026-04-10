@@ -18,6 +18,15 @@ Não propõe soluções, não escreve código, não modifica nada.
 
 - Ler `CLAUDE.md` para entender arquitetura e domínio
 - Ler `.claude/skills/cross-service-analysis/SERVICE_MAP.md` para entender topologia de serviços
+- Buscar candidatos no índice semântico com os termos-chave do sintoma:
+
+  ```bash
+  pipeline search "<termos do sintoma>" --n 10
+  ```
+
+  Use os resultados para orientar a formação de hipóteses — os arquivos retornados
+  têm maior probabilidade de conter o código relevante.
+
 - Identificar quais serviços e componentes são candidatos ao root cause com base no sintoma
 
 ### 2. Formação de hipóteses

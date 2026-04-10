@@ -20,10 +20,30 @@ def isAvailable():
     return getClient() is not None
 
 
+_codeEFCache = None
+
 def _getCodeEmbeddingFunction():
+    global _codeEFCache
+    if _codeEFCache is not None:
+        return _codeEFCache
     try:
+        import os
         from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-        return SentenceTransformerEmbeddingFunction(model_name=CODE_EMBEDDING_MODEL)
+        # Suprime stdout/stderr no nível do fd durante o carregamento do modelo
+        # (progress bar, load report e warnings do HuggingFace Hub)
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        savedOut, savedErr = os.dup(1), os.dup(2)
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+        os.close(devnull)
+        try:
+            _codeEFCache = SentenceTransformerEmbeddingFunction(model_name=CODE_EMBEDDING_MODEL)
+        finally:
+            os.dup2(savedOut, 1)
+            os.dup2(savedErr, 2)
+            os.close(savedOut)
+            os.close(savedErr)
+        return _codeEFCache
     except Exception:
         return None
 
