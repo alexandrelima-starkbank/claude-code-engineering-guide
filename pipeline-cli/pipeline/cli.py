@@ -537,7 +537,7 @@ def indexFileCmd(file_path, project_name):
     projectRoot = Path(result.stdout.strip()) if result.returncode == 0 else path.parent
     name = project_name or projectRoot.name
     projectId = ensureProject(name, str(projectRoot))
-    n = indexFile(path, projectId, projectRoot=projectRoot)
+    n = indexFile(path, projectId, projectRoot=projectRoot, force=True)
     click.echo("Re-indexado: {0} ({1} unidades)".format(path.name, n))
 
 

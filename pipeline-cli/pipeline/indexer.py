@@ -1,4 +1,5 @@
 import ast
+import hashlib
 from pathlib import Path
 
 from . import vector
@@ -128,10 +129,38 @@ def _makeUnit(unitId, qualifiedName, unitType, relPath, line, document, extra):
 
 # ─── Indexação ────────────────────────────────────────────────────────────────
 
-def indexFile(filePath, projectId, projectRoot=None):
-    """Indexa um único arquivo Python. Retorna número de unidades indexadas."""
+def _fileHash(filePath):
+    return hashlib.md5(Path(filePath).read_bytes()).hexdigest()
+
+
+def indexFile(filePath, projectId, projectRoot=None, force=False):
+    """Indexa um único arquivo Python. Retorna número de unidades indexadas.
+
+    Pula o arquivo se o hash do conteúdo não mudou desde a última indexação,
+    a menos que force=True (usado pelo post-commit hook).
+    """
     if not vector.isAvailable():
         return 0
+
+    path = Path(filePath)
+    currentHash = _fileHash(path)
+    relPath = str(path.relative_to(projectRoot)) if projectRoot else str(path)
+    filePrefix = "{0}:{1}:".format(projectId, relPath)
+
+    if not force:
+        client = vector.getClient()
+        col = getSourceCodeCollection(client, create=True)
+        # Verifica se já existe alguma unidade desse arquivo com o mesmo hash
+        try:
+            existing = col.get(
+                where={"$and": [{"projectId": projectId}, {"file": relPath}]},
+                limit=1,
+                include=["metadatas"],
+            )
+            if existing["metadatas"] and existing["metadatas"][0].get("fileHash") == currentHash:
+                return -1  # sem mudança — pulado
+        except Exception:
+            pass
 
     units = extractUnits(filePath, projectRoot)
     if not units:
@@ -142,26 +171,32 @@ def indexFile(filePath, projectId, projectRoot=None):
 
     ids = ["{0}:{1}".format(projectId, u["id"]) for u in units]
     docs = [u["document"] for u in units]
-    metas = [{**u["metadata"], "projectId": projectId} for u in units]
+    metas = [{**u["metadata"], "projectId": projectId, "fileHash": currentHash} for u in units]
 
     col.upsert(documents=docs, ids=ids, metadatas=metas)
     return len(units)
 
 
-def indexProject(projectPath, projectId, verbose=False):
+def indexProject(projectPath, projectId, verbose=False, force=False):
     """Indexa todos os arquivos Python de um projeto. Retorna total de unidades."""
     root = Path(projectPath).resolve()
     total = 0
+    skipped = 0
 
     for pyFile in sorted(root.rglob("*.py")):
-        # Pula diretórios excluídos
         if any(part in SKIP_DIRS for part in pyFile.parts):
             continue
-        n = indexFile(pyFile, projectId, projectRoot=root)
-        total += n
-        if verbose and n > 0:
-            rel = pyFile.relative_to(root)
-            print("  {0} ({1} unidades)".format(rel, n))
+        n = indexFile(pyFile, projectId, projectRoot=root, force=force)
+        if n == -1:
+            skipped += 1
+        elif n > 0:
+            total += n
+            if verbose:
+                rel = pyFile.relative_to(root)
+                print("  {0} ({1} unidades)".format(rel, n))
+
+    if verbose and skipped > 0:
+        print("  ({0} arquivo(s) sem mudança — pulados)".format(skipped))
 
     return total
 
