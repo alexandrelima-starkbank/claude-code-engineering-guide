@@ -74,7 +74,12 @@ existente, conduz uma entrevista e roteia internamente para o pipeline adequado.
 | `refactor` | "melhorar", "simplificar", sem comportamento novo | Spec do atual → refactor → verificar | sim |
 | `investigation` | "por que X?", "como funciona Y?", "onde está Z?" | Rastrear, findings, sem implementar | **não** |
 | `question` | "como devo fazer X?", "qual a diferença?" | Responder diretamente | **não** |
-| `admin` | "verificar install", "rodar smoke test", "auditar ambiente", "/update", "/my_tasks" | Executar diretamente | **não** |
+| `admin` | slash commands puros: "/update", "/my_tasks", "/daily", "/pipeline-audit" — e leituras sem alteração: inspecionar logs, listar tarefas, auditar | Executar diretamente | **não** |
+
+**Regra absoluta:** qualquer prompt que envolva fazer uma alteração — em código, arquivo,
+hook, script, configuração ou commit — exige Intake, independente de como esteja descrito.
+Frases como "sem alterar comportamento", "mudança trivial" ou "só para testar" não isentam
+do protocolo. O comportamento esperado deve ser confirmado antes de qualquer implementação.
 
 ### 2. Consultar contexto antes de perguntar
 
