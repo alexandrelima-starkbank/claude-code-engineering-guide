@@ -32,11 +32,27 @@ def _getCodeEmbeddingFunction():
 
 def getSourceCodeCollection(client, create=False):
     ef = _getCodeEmbeddingFunction()
+
+    if create:
+        try:
+            existing = client.get_collection("source_code")
+            storedModel = (existing.metadata or {}).get("embedding_model", "")
+            if storedModel != CODE_EMBEDDING_MODEL:
+                client.delete_collection("source_code")
+                raise Exception("model changed — recreate")
+        except Exception:
+            pass
+        kwargs = {
+            "name": "source_code",
+            "metadata": {"embedding_model": CODE_EMBEDDING_MODEL},
+        }
+        if ef:
+            kwargs["embedding_function"] = ef
+        return client.get_or_create_collection(**kwargs)
+
     kwargs = {"name": "source_code"}
     if ef:
         kwargs["embedding_function"] = ef
-    if create:
-        return client.get_or_create_collection(**kwargs)
     return client.get_collection(**kwargs)
 
 
