@@ -13,6 +13,8 @@ fi
 
 INPUT=$(cat)
 HOOK_DIR="$(dirname "$0")"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+SORT_SCRIPT="${PROJECT_ROOT}/config/sortImports.py"
 VIOLATIONS=""
 SEEN_FILES=$(mktemp)
 trap 'rm -f "$SEEN_FILES"' EXIT
@@ -24,6 +26,10 @@ check_file() {
     # Deduplicar arquivos repetidos em MultiEdit (compatível com bash 3.2/macOS)
     grep -qxF "$FILE" "$SEEN_FILES" && return
     echo "$FILE" >> "$SEEN_FILES"
+
+    if [ -f "$SORT_SCRIPT" ]; then
+        python3 "$SORT_SCRIPT" "$FILE" 2>/dev/null
+    fi
 
     if command -v ruff &>/dev/null; then
         local RUFF_OUT

@@ -5,5 +5,13 @@
         "editor.codeActionsOnSave": {
             "source.fixAll.ruff": "always"
         }
+    },
+    "emeraldwalk.runonsave": {
+        "commands": [
+            {
+                "match": "\\.py$",
+                "cmd": "python ${workspaceFolder}/config/sortImports.py ${file}"
+            }
+        ]
     }
 }
