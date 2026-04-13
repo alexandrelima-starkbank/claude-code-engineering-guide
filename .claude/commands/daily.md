@@ -9,13 +9,19 @@ pipeline task list --format json | python3 -c "
 import sys, json
 from datetime import date, timedelta
 
-today = str(date.today())
-yesterday = str(date.today() - timedelta(days=1))
+today_dt = date.today()
+weekday = today_dt.weekday()
+prev_dt = today_dt - timedelta(days=3) if weekday == 0 else today_dt - timedelta(days=1)
+today = str(today_dt)
+yesterday = str(prev_dt)
 tasks = json.load(sys.stdin)
 
-active = [t for t in tasks if t['status'] in ('em andamento', 'pendente')]
+TOOLING_PROJECTS = {'projects', 'claude-code-engineering-guide'}
+active = [t for t in tasks if t['status'] in ('em andamento', 'pendente')
+          and t.get('projectId') not in TOOLING_PROJECTS]
 done = [t for t in tasks if t['status'] in ('concluido', 'concluído')
-        and t.get('updatedAt', '')[:10] in (today, yesterday)]
+        and t.get('updatedAt', '')[:10] in (today, yesterday)
+        and t.get('projectId') not in TOOLING_PROJECTS]
 
 def sort_key(t):
     order = {'em andamento': 0, 'pendente': 1}
@@ -24,7 +30,8 @@ def sort_key(t):
 active.sort(key=sort_key)
 done.sort(key=lambda t: t.get('updatedAt', ''), reverse=True)
 
-result = {'today': today, 'yesterday': yesterday, 'active': active, 'done': done}
+prev_label = 'sexta-feira' if weekday == 0 else 'ontem'
+result = {'today': today, 'yesterday': yesterday, 'prev_label': prev_label, 'active': active, 'done': done}
 print(json.dumps(result, ensure_ascii=False, indent=2))
 "
 ```
@@ -36,7 +43,7 @@ Com o JSON resultante, gere o relatório no seguinte formato:
 [ ] <resumo da tarefa>
 [ ] <resumo da tarefa>
 
-{yesterday} -> ontem
+{yesterday} -> {prev_label}
 [X] <resumo da tarefa>
 ```
 
