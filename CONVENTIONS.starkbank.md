@@ -20,13 +20,13 @@ Curadoria do time — não modificar sem decisão explícita.
 
 ---
 
-## Ordenação Alfabética
+## Ordenação
 
 Aplicada em todo o codebase. Reduz conflitos de merge e facilita busca visual.
 
 | Elemento | Regra |
 |----------|-------|
-| Imports | Alfabética dentro de cada grupo (stdlib → externas → locais) |
+| Imports | 3 grupos (third-party → externas → locais), sem linha em branco entre grupos; dentro de cada grupo: comprimento crescente, depois alfabético em caso de empate |
 | Atributos de classe | Alfabética na declaração |
 | Métodos de classe | Alfabética (exceto `__init__` e dunder methods, que vêm primeiro) |
 | Parâmetros de função | Alfabética quando não há dependência de ordem |
@@ -34,16 +34,17 @@ Aplicada em todo o codebase. Reduz conflitos de merge e facilita busca visual.
 | Variáveis de módulo | Alfabética por bloco lógico |
 
 ```python
-# CORRETO — imports alfabéticos dentro de cada grupo
-from collections import Counter
-from datetime import datetime
-from json import loads
-
-from click import command, option
+# CORRETO — imports: 3 grupos contíguos, comprimento crescente dentro de cada grupo
 from requests import get
-
-from models.item import Item, ItemStatus
-from utils.parser import parseInput
+from click import command, option
+from server.middlewares.limit import validateLimit
+from server.middlewares.expand import validateExpand
+from server.middlewares.queryString import validateQueryIds, validateQueryString
+from handlers.base import MsBaseHandler
+from models.card import CardStatus, CardType
+from utils.holderPermission import getSafeHolderIds
+from middlewares.card import validatePostCards, validatePatchCards
+from middlewares.general import validateOptionalIds, validateOptionalStatus, validateReferenceIds
 
 # CORRETO — atributos e métodos alfabéticos
 class ItemGateway:
