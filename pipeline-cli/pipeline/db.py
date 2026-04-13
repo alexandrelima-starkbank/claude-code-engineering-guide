@@ -1,8 +1,11 @@
 from sqlite3 import connect, Row
 from pathlib import Path
 from datetime import datetime
+from threading import local
 
 DB_PATH = Path.home() / ".claude" / "pipeline" / "pipeline.db"
+
+_threadLocal = local()
 
 PHASES = ["requirements", "spec", "tests", "implementation", "mutation", "done"]
 
@@ -91,11 +94,26 @@ CREATE TABLE IF NOT EXISTS incidents (
 """
 
 def getConn():
+    conn = getattr(_threadLocal, "conn", None)
+    if conn is not None:
+        try:
+            conn.execute("SELECT 1")
+            return conn
+        except Exception:
+            conn = None
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = connect(str(DB_PATH))
     conn.row_factory = Row
     conn.execute("PRAGMA foreign_keys = ON")
+    _threadLocal.conn = conn
     return conn
+
+
+def closeConn():
+    conn = getattr(_threadLocal, "conn", None)
+    if conn is not None:
+        conn.close()
+        _threadLocal.conn = None
 
 def initDb():
     with getConn() as conn:
@@ -380,7 +398,7 @@ def getLatestTestResult(taskId, testMethod):
         return None
     with getConn() as conn:
         row = conn.execute(
-            "SELECT passed FROM testResults WHERE taskId = ? AND testMethod = ? ORDER BY runAt DESC LIMIT 1",
+            "SELECT passed FROM testResults WHERE taskId = ? AND testMethod = ? ORDER BY id DESC LIMIT 1",
             (taskId, testMethod),
         ).fetchone()
         return row["passed"] if row else None
@@ -398,7 +416,7 @@ def recordMutation(taskId, totalMutants, killed):
 def getLatestMutation(taskId):
     with getConn() as conn:
         row = conn.execute(
-            "SELECT * FROM mutationResults WHERE taskId = ? ORDER BY runAt DESC LIMIT 1",
+            "SELECT * FROM mutationResults WHERE taskId = ? ORDER BY id DESC LIMIT 1",
             (taskId,),
         ).fetchone()
         return dict(row) if row else None

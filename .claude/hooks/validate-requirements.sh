@@ -13,6 +13,7 @@ PROMPT=$(echo "$INPUT" | jq -r '.prompt // ""' 2>/dev/null)
 # Detecta intenção de implementação (PT e EN)
 IMPL_PATTERN='(^|\s)(implement|criar|crie|escrever|escreva|adicionar|adicione|build|write|desenvolver|implementar|codificar|faça|fazer|code|tdd|testes|tests)(\s|$)'
 if ! echo "$PROMPT" | grep -qiE "$IMPL_PATTERN"; then
+    echo "[validate-requirements] skip: no implementation intent detected" >&2
     exit 0
 fi
 
@@ -40,6 +41,8 @@ except:
 
     [ -z "$PHASE" ] || [ -z "$TASK_ID" ] && exit 0
 
+    echo "[validate-requirements] task=${TASK_ID} phase=${PHASE}" >&2
+
     # Gate 1: requirements — verificar EARS aprovados
     if [ "$PHASE" = "requirements" ]; then
         EARS_COUNT=$(pipeline ears list "$TASK_ID" --format json 2>/dev/null | python3 -c "
@@ -51,6 +54,7 @@ except:
     print(0)
 " 2>/dev/null)
         if [ "${EARS_COUNT:-0}" -eq 0 ]; then
+            echo "[validate-requirements] GATE: blocking — ${TASK_ID} has no approved EARS" >&2
             jq -n --arg task "$TASK_ID" '{
                 hookSpecificOutput: {
                     hookEventName: "UserPromptSubmit",
@@ -72,6 +76,7 @@ except:
     print(0)
 " 2>/dev/null)
         if [ "${CRITERIA_COUNT:-0}" -eq 0 ]; then
+            echo "[validate-requirements] GATE: blocking — ${TASK_ID} has no approved criteria" >&2
             jq -n --arg task "$TASK_ID" '{
                 hookSpecificOutput: {
                     hookEventName: "UserPromptSubmit",
@@ -95,6 +100,7 @@ except:
     print(0)
 " 2>/dev/null)
         if [ "${UNREVIEWED:-0}" -gt 0 ]; then
+            echo "[validate-requirements] GATE: blocking — ${TASK_ID} has ${UNREVIEWED} unreviewed test(s)" >&2
             jq -n --arg task "$TASK_ID" --arg n "$UNREVIEWED" '{
                 hookSpecificOutput: {
                     hookEventName: "UserPromptSubmit",

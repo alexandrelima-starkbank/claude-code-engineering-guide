@@ -12,8 +12,7 @@
           {
             "type": "command",
             "command": "bash -c 'cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" && bash .claude/hooks/enforce-intake-protocol.sh'",
-
-            "timeout": 5000
+            "timeout": 10000
           },
           {
             "type": "command",

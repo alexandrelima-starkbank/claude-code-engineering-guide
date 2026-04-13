@@ -21,6 +21,7 @@ CONTEXT=""
 if command -v pipeline &>/dev/null; then
     ACTIVE=$(pipeline task list --status "em andamento" --format context 2>/dev/null)
     if [ -n "$ACTIVE" ]; then
+        echo "[inject-tasks] source=pipeline-cli" >&2
         CONTEXT=$(printf "Tarefas ativas (pipeline DB):\n%s\n%s" "$ACTIVE" "$MANDATORY")
         jq -n --arg ctx "$CONTEXT" '{
             hookSpecificOutput: {
@@ -47,8 +48,12 @@ ACTIVE=$(awk '/^## Tarefas Ativas/{found=1; next} /^## Histórico/{found=0} foun
     | grep -v '^# Gerado' \
     | sed '/^[[:space:]]*$/d')
 
-[ -z "$ACTIVE" ] && exit 0
+if [ -z "$ACTIVE" ]; then
+    echo "[inject-tasks] skip: no active tasks in TASKS.md" >&2
+    exit 0
+fi
 
+echo "[inject-tasks] source=TASKS.md" >&2
 STALE=$(echo "$ACTIVE" | grep -iE '\*\*Status:\*\*\s*(concluído|cancelado)')
 CONTEXT=$(printf "Tarefas ativas (TASKS.md):\n%s\n%s" "$ACTIVE" "$MANDATORY")
 

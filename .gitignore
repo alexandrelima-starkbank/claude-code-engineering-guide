@@ -8,6 +8,11 @@ CLAUDE.local.md
 # pytest
 tests/__pycache__/
 .pytest_cache/
+.pytest-report.json
 
 # mutmut
 .mutmut-cache
+
+# pipeline (auto-gerado pelo banco)
+TASKS.md
+HISTORY_TASKS.md
