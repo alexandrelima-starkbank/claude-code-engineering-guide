@@ -40,9 +40,12 @@ today_str = str(today)
 prev_str = str(prev)
 tasks = json.load(sys.stdin)
 
-active = [t for t in tasks if t['status'] in ('em andamento', 'pendente')]
+TOOLING_PROJECTS = {'projects', 'claude-code-engineering-guide'}
+active = [t for t in tasks if t['status'] in ('em andamento', 'pendente')
+          and t.get('projectId') not in TOOLING_PROJECTS]
 done = [t for t in tasks if t['status'] in ('concluido', 'concluído')
-        and t.get('updatedAt', '')[:10] in (today_str, prev_str)]
+        and t.get('updatedAt', '')[:10] in (today_str, prev_str)
+        and t.get('projectId') not in TOOLING_PROJECTS]
 
 def sort_key(t):
     return ({'em andamento': 0, 'pendente': 1}.get(t['status'], 9), t['id'])
