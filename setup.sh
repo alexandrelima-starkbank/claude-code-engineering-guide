@@ -235,6 +235,16 @@ else
     fail "não foi possível aplicar permissões em .claude/hooks/ — rode a partir da raiz do projeto"
 fi
 
+# ─── symlinks globais ─────────────────────────────────────────────────────────
+echo ""
+echo "── Hooks globais ───────────────────────────────────────────────────────────"
+mkdir -p ~/.claude/hooks
+HOOKS_SRC="$(pwd)/.claude/hooks"
+for f in "$HOOKS_SRC"/*; do
+    ln -sf "$f" ~/.claude/hooks/"$(basename "$f")"
+done
+ok "symlinks criados em ~/.claude/hooks/ → .claude/hooks/"
+
 # ─── resultado ────────────────────────────────────────────────────────────────
 echo ""
 if [ "$FAILED" -eq 0 ]; then
