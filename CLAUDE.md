@@ -12,7 +12,8 @@ de desenvolvimento pronto para uso (hooks, agentes, slash commands).
 
 ```
 claude-code-engineering-guide/
-├── README.md          # O guia principal
+├── README.md          # Entry point do repositório
+├── GUIDE.md           # Guia Claude Code para engenharia
 ├── setup.sh           # Instala dependências e torna hooks executáveis
 ├── configure.sh       # Configura valores do projeto (interativo, pós-setup)
 ├── .claude/           # Ambiente Claude Code (hooks, agents, commands, skills)

@@ -208,7 +208,7 @@ PROJECT_SIGNALS = [
     "package.json", "Makefile", "requirements.txt",
 ]
 
-CONTEXT_FILES = ["README.md", "CLAUDE.md", "ARCHITECTURE.md"]
+CONTEXT_FILES = ["README.md", "GUIDE.md", "CLAUDE.md", "ARCHITECTURE.md"]
 
 
 def _isProject(path):
