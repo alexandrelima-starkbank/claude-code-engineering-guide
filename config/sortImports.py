@@ -19,8 +19,11 @@ def classifyImport(line, localPackages):
 def detectLocalPackages(projectRoot):
     packages = []
     for item in sorted(projectRoot.iterdir()):
-        if item.is_dir() and (item / "__init__.py").exists():
-            packages.append(item.name)
+        try:
+            if item.is_dir() and (item / "__init__.py").exists():
+                packages.append(item.name)
+        except PermissionError:
+            continue
     return packages
 
 
@@ -100,7 +103,7 @@ def sortImports(filePath, localPackages=None):
         externalLines.append(stripped)
     stdlibLines.sort(key=sortKey)
     externalLines.sort(key=sortKey)
-    localLines.sort(key=sortKey)
+    localLines = sortLocalGroup(localLines)
     sortedLines = stdlibLines + externalLines + localLines
     if not sortedLines:
         path.write_text(''.join(lines[:startIndex] + lines[endIndex:]))
@@ -112,6 +115,24 @@ def sortImports(filePath, localPackages=None):
 
 def sortKey(line):
     return len(line)
+
+
+def sortLocalGroup(lines):
+    namespaceGroups = {}
+    order = []
+    for line in lines:
+        topLevel = getTopLevelModule(line) or ''
+        if topLevel not in namespaceGroups:
+            namespaceGroups[topLevel] = []
+            order.append(topLevel)
+        namespaceGroups[topLevel].append(line)
+    for ns in namespaceGroups:
+        namespaceGroups[ns].sort(key=sortKey)
+    sortedNs = sorted(order, key=lambda ns: max(len(l) for l in namespaceGroups[ns]))
+    result = []
+    for ns in sortedNs:
+        result.extend(namespaceGroups[ns])
+    return result
 
 
 if __name__ == '__main__':

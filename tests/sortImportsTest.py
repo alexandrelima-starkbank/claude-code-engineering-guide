@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest import TestCase
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "config"))
-from sortImports import classifyImport, extractImportBlock, getTopLevelModule, readKnownFirstParty, sortImports, sortKey
+from sortImports import classifyImport, extractImportBlock, getTopLevelModule, readKnownFirstParty, sortImports, sortKey, sortLocalGroup
 
 
 class SortImportsTest(TestCase):
@@ -128,6 +128,50 @@ class SortImportsTest(TestCase):
 
         # Assert
         self.assertIsNone(result)
+
+    def testSortLocalGroup_GroupsByNamespaceMaxLength(self):
+        # Arrange — handlers max=39, models max=44: handlers first
+        lines = [
+            "from models.cardLog import CardLogType",
+            "from handlers.base import MsBaseHandler",
+            "from models.card import CardStatus, CardType",
+        ]
+
+        # Act
+        result = sortLocalGroup(lines)
+
+        # Assert
+        self.assertEqual(result[0], "from handlers.base import MsBaseHandler")
+        self.assertEqual(result[1], "from models.cardLog import CardLogType")
+        self.assertEqual(result[2], "from models.card import CardStatus, CardType")
+
+    def testSortLocalGroup_WithinNamespaceByLength(self):
+        # Arrange — within models: cardLog(38) before card(44)
+        lines = [
+            "from models.card import CardStatus, CardType",
+            "from models.cardLog import CardLogType",
+        ]
+
+        # Act
+        result = sortLocalGroup(lines)
+
+        # Assert
+        self.assertEqual(result[0], "from models.cardLog import CardLogType")
+        self.assertEqual(result[1], "from models.card import CardStatus, CardType")
+
+    def testSortLocalGroup_TiesBetweenGroupsPreserveOriginalOrder(self):
+        # Arrange — utils max=51, gateways max=51: tie resolved by original order
+        lines = [
+            "from utils.holderPermission import getSafeHolderIds",
+            "from gateways.issuingCard import IssuingCardGateway",
+        ]
+
+        # Act
+        result = sortLocalGroup(lines)
+
+        # Assert — utils comes first (original order preserved)
+        self.assertEqual(result[0], "from utils.holderPermission import getSafeHolderIds")
+        self.assertEqual(result[1], "from gateways.issuingCard import IssuingCardGateway")
 
     def testSortKey_ShorterFirst(self):
         # Arrange
