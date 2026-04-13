@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest import TestCase
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "config"))
-from sortImports import classifyImport, extractImportBlock, getModulePath, getTopLevelModule, readKnownFirstParty, sortImports, sortKey, sortLocalGroup
+from sortImports import classifyImport, extractImportBlock, getTopLevelModule, readKnownFirstParty, sortImports, sortKey
 
 
 class SortImportsTest(TestCase):
@@ -129,80 +129,6 @@ class SortImportsTest(TestCase):
         # Assert
         self.assertIsNone(result)
 
-    def testGetModulePath_FromImport(self):
-        # Arrange
-        line = "from models.card import CardStatus, CardType"
-
-        # Act
-        result = getModulePath(line)
-
-        # Assert
-        self.assertEqual(result, "models.card")
-
-    def testGetModulePath_ImportStatement(self):
-        # Arrange
-        line = "import os"
-
-        # Act
-        result = getModulePath(line)
-
-        # Assert
-        self.assertEqual(result, "os")
-
-    def testGetModulePath_NotAnImport(self):
-        # Arrange
-        line = "x = 1"
-
-        # Act
-        result = getModulePath(line)
-
-        # Assert
-        self.assertEqual(result, "")
-
-    def testSortLocalGroup_GroupsByNamespace(self):
-        # Arrange
-        lines = [
-            "from models.card import CardStatus, CardType",
-            "from handlers.base import MsBaseHandler",
-        ]
-
-        # Act
-        result = sortLocalGroup(lines)
-
-        # Assert — handlers max=38 < models max=44
-        self.assertEqual(result[0], "from handlers.base import MsBaseHandler")
-        self.assertEqual(result[1], "from models.card import CardStatus, CardType")
-
-    def testSortLocalGroup_OrdersGroupsByMaxLength(self):
-        # Arrange — middlewares max=96 > utils max=51
-        lines = [
-            "from middlewares.general import validateOptionalIds, validateOptionalStatus, validateReferenceIds",
-            "from middlewares.card import validatePostCards, validatePatchCards",
-            "from utils.holderPermission import getSafeHolderIds",
-        ]
-
-        # Act
-        result = sortLocalGroup(lines)
-
-        # Assert — utils(51) < middlewares(96)
-        self.assertEqual(result[0], "from utils.holderPermission import getSafeHolderIds")
-        self.assertEqual(result[1], "from middlewares.card import validatePostCards, validatePatchCards")
-        self.assertEqual(result[2], "from middlewares.general import validateOptionalIds, validateOptionalStatus, validateReferenceIds")
-
-    def testSortLocalGroup_WithinNamespaceAlphabetical(self):
-        # Arrange — models.card < models.cardLog alphabetically
-        lines = [
-            "from models.cardLog import CardLogType",
-            "from models.card import CardStatus, CardType",
-        ]
-
-        # Act
-        result = sortLocalGroup(lines)
-
-        # Assert
-        self.assertEqual(result[0], "from models.card import CardStatus, CardType")
-        self.assertEqual(result[1], "from models.cardLog import CardLogType")
-
     def testSortKey_ShorterFirst(self):
         # Arrange
         lines = ["from pathlib import Path", "import os"]
@@ -246,8 +172,8 @@ class SortImportsTest(TestCase):
         self.assertEqual(importLines[1], "from requests import get")
         self.assertEqual(importLines[2], "from utils.parser import parseInput")
 
-    def testSortImports_OrdersByModulePathWithinNamespace(self):
-        # Arrange — models.card < models.cardLog alphabetically
+    def testSortImports_OrdersByLengthWithinGroup(self):
+        # Arrange
         content = (
             "from models.cardLog import CardLogType\n"
             "from models.card import CardStatus, CardType\n"
@@ -264,8 +190,8 @@ class SortImportsTest(TestCase):
 
         # Assert
         lines = result.splitlines()
-        self.assertEqual(lines[0], "from models.card import CardStatus, CardType")
-        self.assertEqual(lines[1], "from models.cardLog import CardLogType")
+        self.assertEqual(lines[0], "from models.cardLog import CardLogType")
+        self.assertEqual(lines[1], "from models.card import CardStatus, CardType")
 
     def testSortImports_PreservesNonImportCode(self):
         # Arrange

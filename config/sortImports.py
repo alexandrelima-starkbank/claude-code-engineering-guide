@@ -19,11 +19,8 @@ def classifyImport(line, localPackages):
 def detectLocalPackages(projectRoot):
     packages = []
     for item in sorted(projectRoot.iterdir()):
-        try:
-            if item.is_dir() and (item / "__init__.py").exists():
-                packages.append(item.name)
-        except PermissionError:
-            continue
+        if item.is_dir() and (item / "__init__.py").exists():
+            packages.append(item.name)
     return packages
 
 
@@ -51,16 +48,6 @@ def findProjectRoot(filePath):
             return current
         current = current.parent
     return Path(filePath).resolve().parent
-
-
-def getModulePath(line):
-    match = re.match(r'from\s+(\S+)\s+import', line)
-    if match:
-        return match.group(1)
-    match = re.match(r'import\s+(\S+)', line)
-    if match:
-        return match.group(1)
-    return ''
 
 
 def getTopLevelModule(line):
@@ -113,7 +100,7 @@ def sortImports(filePath, localPackages=None):
         externalLines.append(stripped)
     stdlibLines.sort(key=sortKey)
     externalLines.sort(key=sortKey)
-    localLines = sortLocalGroup(localLines)
+    localLines.sort(key=sortKey)
     sortedLines = stdlibLines + externalLines + localLines
     if not sortedLines:
         path.write_text(''.join(lines[:startIndex] + lines[endIndex:]))
@@ -125,24 +112,6 @@ def sortImports(filePath, localPackages=None):
 
 def sortKey(line):
     return len(line)
-
-
-def sortLocalGroup(lines):
-    namespaceGroups = {}
-    order = []
-    for line in lines:
-        topLevel = getTopLevelModule(line) or ''
-        if topLevel not in namespaceGroups:
-            namespaceGroups[topLevel] = []
-            order.append(topLevel)
-        namespaceGroups[topLevel].append(line)
-    for ns in namespaceGroups:
-        namespaceGroups[ns].sort(key=getModulePath)
-    sortedNs = sorted(order, key=lambda ns: max(len(l) for l in namespaceGroups[ns]))
-    result = []
-    for ns in sortedNs:
-        result.extend(namespaceGroups[ns])
-    return result
 
 
 if __name__ == '__main__':
