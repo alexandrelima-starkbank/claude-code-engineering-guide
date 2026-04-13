@@ -40,6 +40,14 @@ engineering, fluxo agêntico, MCP, tool use, otimização e referência de model
 
 ---
 
+## Arquitetura
+
+Diagramas visuais do ambiente — componentes, hooks, pipeline, fluxos:
+
+**[ARCHITECTURE.md](ARCHITECTURE.md)**
+
+---
+
 ## Documentação do Ambiente
 
 Documentação detalhada de cada hook, agente, comando e skill:
