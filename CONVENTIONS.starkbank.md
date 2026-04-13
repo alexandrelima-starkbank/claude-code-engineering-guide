@@ -26,7 +26,7 @@ Aplicada em todo o codebase. Reduz conflitos de merge e facilita busca visual.
 
 | Elemento | Regra |
 |----------|-------|
-| Imports | 3 grupos (third-party → externas → locais), sem linha em branco entre grupos; dentro de cada grupo: comprimento crescente, depois alfabético em caso de empate |
+| Imports | 3 grupos (third-party → externas → locais), sem linha em branco entre grupos; dentro de cada grupo: comprimento crescente; empates preservam a ordem original |
 | Atributos de classe | Alfabética na declaração |
 | Métodos de classe | Alfabética (exceto `__init__` e dunder methods, que vêm primeiro) |
 | Parâmetros de função | Alfabética quando não há dependência de ordem |

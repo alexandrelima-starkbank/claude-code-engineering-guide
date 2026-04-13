@@ -111,7 +111,7 @@ def sortImports(filePath, localPackages=None):
 
 
 def sortKey(line):
-    return (len(line), line)
+    return len(line)
 
 
 if __name__ == '__main__':

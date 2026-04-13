@@ -139,7 +139,7 @@ class SortImportsTest(TestCase):
         # Assert
         self.assertEqual(result[0], "import os")
 
-    def testSortKey_AlphabeticForSameLength(self):
+    def testSortKey_SameLengthPreservesOrder(self):
         # Arrange
         lines = ["import sys", "import abc"]
 
@@ -147,7 +147,7 @@ class SortImportsTest(TestCase):
         result = sorted(lines, key=sortKey)
 
         # Assert
-        self.assertEqual(result[0], "import abc")
+        self.assertEqual(result[0], "import sys")
 
     def testSortImports_ThreeGroupsNoBlankLines(self):
         # Arrange
