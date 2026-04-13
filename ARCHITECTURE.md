@@ -334,3 +334,76 @@ erDiagram
         real score
     }
 ```
+
+---
+
+## 7. Indexação Semântica
+
+```mermaid
+flowchart TB
+    subgraph "pipeline index &lt;dir&gt;"
+        DISCOVER[Descobre projetos\npyproject.toml / .git / setup.py]
+        DISCOVER --> FOREACH[Para cada projeto]
+    end
+
+    subgraph "Docs → coleção context"
+        DOCS[Lê README.md, GUIDE.md,\nCLAUDE.md, ARCHITECTURE.md]
+        DOCS -->|"primeiros 2000 chars"| CTX_COL[(ChromaDB\ncontext)]
+    end
+
+    subgraph "Código → coleção source_code"
+        WALK["Varre *.py recursivo\n(skip: __pycache__, .venv,\nmigrations, *_pb2.py)"]
+        WALK --> HASH{Hash mudou?}
+        HASH -->|"Não"| SKIP[Pula arquivo]
+        HASH -->|"Sim"| AST[AST parse]
+
+        AST --> FUNCS[Funções de módulo]
+        AST --> CLASSES[Classes + header]
+        AST --> METHODS[Métodos de classe]
+
+        FUNCS --> EMBED
+        CLASSES --> EMBED
+        METHODS --> EMBED
+
+        EMBED["Embedding\nCodeSearchNet\ndistilroberta"] --> CODE_COL[(ChromaDB\nsource_code)]
+    end
+
+    subgraph "Re-indexação incremental"
+        COMMIT((git commit)) -->|"post-commit hook"| REINDEX
+        REINDEX["pipeline index-file\n(só arquivos .py alterados)"]
+        REINDEX --> HASH
+    end
+
+    FOREACH --> DOCS
+    FOREACH --> WALK
+
+    subgraph "Busca"
+        SEARCH["pipeline search\n'autenticação jwt'"]
+        SEARCH --> CODE_COL
+        CODE_COL -->|"Top N resultados\nfile:line qualifiedName"| RESULTS[Resultados]
+
+        CTX_SEARCH["pipeline context search\n'decisão sobre cache'"]
+        CTX_SEARCH --> CTX_COL
+        CTX_COL -->|"Requisitos similares\nDecisões arquiteturais"| CTX_RESULTS[Resultados]
+    end
+```
+
+### Detalhes do AST
+
+Cada arquivo Python é parseado via `ast` e decomposto em unidades semânticas:
+
+```mermaid
+flowchart LR
+    PY[arquivo.py] --> AST[ast.parse]
+
+    AST --> FN["FunctionDef\nAsyncFunctionDef\n→ tipo: function"]
+    AST --> CLS["ClassDef\n→ tipo: class\n(header: 8 linhas)"]
+    CLS --> MTD["FunctionDef filho\n→ tipo: method\n(qualifiedName: Class.method)"]
+
+    FN --> UNIT["Unidade semântica\n─────────────\nid: path:line\nqualifiedName\ntype\nbody (max 60 linhas)\nfileHash"]
+
+    CLS --> UNIT
+    MTD --> UNIT
+
+    UNIT --> UPSERT["ChromaDB upsert\n(id, document, metadata)"]
+```
