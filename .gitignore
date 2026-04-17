@@ -12,6 +12,11 @@ tests/__pycache__/
 
 # mutmut
 .mutmut-cache
+pipeline-cli/mutants/
+
+# local scripts
+analise.py
+config/__pycache__/
 
 # pipeline (auto-gerado pelo banco)
 TASKS.md

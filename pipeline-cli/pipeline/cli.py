@@ -50,7 +50,6 @@ def cli():
 
 @cli.group()
 def project():
-    """Gerenciar projetos."""
     pass
 
 
@@ -64,29 +63,28 @@ def projectList():
 
 @cli.group()
 def task():
-    """Gerenciar tarefas."""
     pass
 
 
 @task.command("create")
-@click.option("--project", "project_name", default=None, help="Nome do projeto. Detecta via git se omitido.")
+@click.option("--project", "projectName", default=None, help="Nome do projeto. Detecta via git se omitido.")
 @click.option("--title", required=True, help="Título da tarefa.")
 @click.option("--description", default=None)
-@click.option("--type", "task_type", default="feature", type=click.Choice(["feature", "bug", "incident", "refactor"]))
-def taskCreate(project_name, title, description, task_type):
-    projectId = ensureProject(project_name) if project_name else detectProject()
-    taskId = createTask(projectId, title, description, task_type)
+@click.option("--type", "taskType", default="feature", type=click.Choice(["feature", "bug", "incident", "refactor"]))
+def taskCreate(projectName, title, description, taskType):
+    projectId = ensureProject(projectName) if projectName else detectProject()
+    taskId = createTask(projectId, title, description, taskType)
     click.echo(taskId)
     autoRegenTasksMd()
 
 
 @task.command("list")
-@click.option("--project", "project_name", default=None)
+@click.option("--project", "projectName", default=None)
 @click.option("--status", default=None)
 @click.option("--phase", default=None)
 @click.option("--format", "fmt", default="table", type=click.Choice(["table", "json", "context"]))
-def taskList(project_name, status, phase, fmt):
-    projectId = ensureProject(project_name) if project_name else None
+def taskList(projectName, status, phase, fmt):
+    projectId = ensureProject(projectName) if projectName else None
     tasks = listTasks(projectId=projectId, status=status, phase=phase)
     if fmt == "json":
         click.echo(dumps(tasks, ensure_ascii=False, indent=2))
@@ -111,32 +109,32 @@ def taskList(project_name, status, phase, fmt):
 
 
 @task.command("show")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--format", "fmt", default="markdown", type=click.Choice(["markdown", "json"]))
-def taskShow(task_id, fmt):
+def taskShow(taskId, fmt):
     if fmt == "json":
-        t = getTask(task_id)
+        t = getTask(taskId)
         if not t:
-            click.echo("Task {0} não encontrada.".format(task_id), err=True)
+            click.echo("Task {0} não encontrada.".format(taskId), err=True)
             sys.exit(1)
         click.echo(dumps(t, ensure_ascii=False, indent=2))
-    else:
-        md = formatTask(task_id)
-        if not md:
-            click.echo("Task {0} não encontrada.".format(task_id), err=True)
-            sys.exit(1)
-        click.echo(md)
+        return
+    md = formatTask(taskId)
+    if not md:
+        click.echo("Task {0} não encontrada.".format(taskId), err=True)
+        sys.exit(1)
+    click.echo(md)
 
 
 @task.command("update")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--status", default=None)
 @click.option("--description", default=None)
 @click.option("--title", default=None)
-@click.option("--type", "task_type", default=None, type=click.Choice(["feature", "bug", "incident", "refactor"]))
-def taskUpdateCmd(task_id, status, description, title, task_type):
-    updateTask(task_id, status=status, description=description, title=title, type=task_type)
-    click.echo("{0} atualizado.".format(task_id))
+@click.option("--type", "taskType", default=None, type=click.Choice(["feature", "bug", "incident", "refactor"]))
+def taskUpdateCmd(taskId, status, description, title, taskType):
+    updateTask(taskId, status=status, description=description, title=title, type=taskType)
+    click.echo("{0} atualizado.".format(taskId))
     autoRegenTasksMd()
 
 
@@ -144,18 +142,17 @@ def taskUpdateCmd(task_id, status, description, title, task_type):
 
 @cli.group()
 def phase():
-    """Controlar fases da pipeline."""
     pass
 
 
 @phase.command("advance")
-@click.argument("task_id")
-@click.option("--to", "to_phase", required=True, type=click.Choice(PHASES))
+@click.argument("taskId")
+@click.option("--to", "toPhase", required=True, type=click.Choice(PHASES))
 @click.option("--reason", default=None)
-def phaseAdvance(task_id, to_phase, reason):
+def phaseAdvance(taskId, toPhase, reason):
     try:
-        advancePhase(task_id, to_phase, reason)
-        click.echo("{0} → fase: {1}".format(task_id, to_phase))
+        advancePhase(taskId, toPhase, reason)
+        click.echo("{0} → fase: {1}".format(taskId, toPhase))
         autoRegenTasksMd()
     except ValueError as e:
         click.echo("ERRO: {0}".format(e), err=True)
@@ -163,11 +160,11 @@ def phaseAdvance(task_id, to_phase, reason):
 
 
 @phase.command("history")
-@click.argument("task_id")
-def phaseHistoryCmd(task_id):
-    rows = getPhaseHistory(task_id)
+@click.argument("taskId")
+def phaseHistoryCmd(taskId):
+    rows = getPhaseHistory(taskId)
     if not rows:
-        click.echo("Sem histórico de fases para {0}.".format(task_id))
+        click.echo("Sem histórico de fases para {0}.".format(taskId))
         return
     for row in rows:
         fromPhase = row.get("fromPhase") or "—"
@@ -179,34 +176,33 @@ def phaseHistoryCmd(task_id):
 
 @cli.group()
 def ears():
-    """Gerenciar requisitos EARS."""
     pass
 
 
 @ears.command("add")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--pattern", required=True,
               type=click.Choice(["ubiquitous", "event", "state", "unwanted", "optional"]))
 @click.option("--text", required=True)
-def earsAdd(task_id, pattern, text):
-    reqId = addEars(task_id, pattern, text)
-    t = getTask(task_id)
+def earsAdd(taskId, pattern, text):
+    reqId = addEars(taskId, pattern, text)
+    t = getTask(taskId)
     if t:
-        vector.addRequirement(task_id, reqId, text, t["projectId"])
+        vector.addRequirement(taskId, reqId, text, t["projectId"])
     click.echo(reqId)
     autoRegenTasksMd()
 
 
 @ears.command("list")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--format", "fmt", default="table", type=click.Choice(["table", "json"]))
-def earsList(task_id, fmt):
-    reqs = listEars(task_id)
+def earsList(taskId, fmt):
+    reqs = listEars(taskId)
     if fmt == "json":
         click.echo(dumps(reqs, ensure_ascii=False, indent=2))
         return
     if not reqs:
-        click.echo("Nenhum requisito EARS para {0}.".format(task_id))
+        click.echo("Nenhum requisito EARS para {0}.".format(taskId))
         return
     for r in reqs:
         approved = "✓" if r["approved"] else " "
@@ -214,15 +210,16 @@ def earsList(task_id, fmt):
 
 
 @ears.command("approve")
-@click.argument("task_id")
-@click.argument("req_id", default="all")
-def earsApprove(task_id, req_id):
-    if req_id == "all":
-        approveAllEars(task_id)
-        click.echo("Todos os EARS aprovados para {0}.".format(task_id))
-    else:
-        approveEars(task_id, req_id)
-        click.echo("{0} aprovado.".format(req_id))
+@click.argument("taskId")
+@click.argument("reqId", default="all")
+def earsApprove(taskId, reqId):
+    if reqId == "all":
+        approveAllEars(taskId)
+        click.echo("Todos os EARS aprovados para {0}.".format(taskId))
+        autoRegenTasksMd()
+        return
+    approveEars(taskId, reqId)
+    click.echo("{0} aprovado.".format(reqId))
     autoRegenTasksMd()
 
 
@@ -230,34 +227,33 @@ def earsApprove(task_id, req_id):
 
 @cli.group()
 def criterion():
-    """Gerenciar critérios de aceite (BDD)."""
     pass
 
 
 @criterion.command("add")
-@click.argument("task_id")
-@click.option("--ears", "ears_id", required=True, help="ID do requisito EARS de origem (ex: R01)")
+@click.argument("taskId")
+@click.option("--ears", "earsId", required=True, help="ID do requisito EARS de origem (ex: R01)")
 @click.option("--scenario", required=True, help="Nome do cenário")
-@click.option("--given", "given_text", default=None)
-@click.option("--when", "when_text", default=None)
-@click.option("--then", "then_text", required=True)
-@click.option("--test", "test_method", default=None, help="Nome do método de teste")
-def criterionAdd(task_id, ears_id, scenario, given_text, when_text, then_text, test_method):
-    cId = addCriterion(task_id, ears_id, scenario, then_text, given_text, when_text, test_method)
+@click.option("--given", "givenText", default=None)
+@click.option("--when", "whenText", default=None)
+@click.option("--then", "thenText", required=True)
+@click.option("--test", "testMethod", default=None, help="Nome do método de teste")
+def criterionAdd(taskId, earsId, scenario, givenText, whenText, thenText, testMethod):
+    cId = addCriterion(taskId, earsId, scenario, thenText, givenText, whenText, testMethod)
     click.echo(cId)
     autoRegenTasksMd()
 
 
 @criterion.command("list")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--format", "fmt", default="table", type=click.Choice(["table", "json"]))
-def criterionList(task_id, fmt):
-    criteria = listCriteria(task_id)
+def criterionList(taskId, fmt):
+    criteria = listCriteria(taskId)
     if fmt == "json":
         click.echo(dumps(criteria, ensure_ascii=False, indent=2))
         return
     if not criteria:
-        click.echo("Nenhum critério para {0}.".format(task_id))
+        click.echo("Nenhum critério para {0}.".format(taskId))
         return
     for c in criteria:
         approved = "✓" if c["approved"] else " "
@@ -267,26 +263,26 @@ def criterionList(task_id, fmt):
 
 
 @criterion.command("set-quality")
-@click.argument("task_id")
-@click.argument("criterion_id")
+@click.argument("taskId")
+@click.argument("criterionId")
 @click.argument("quality", type=click.Choice(["WEAK", "ACCEPTABLE", "STRONG"]))
-def criterionSetQuality(task_id, criterion_id, quality):
-    """Registra a qualidade do teste associado ao critério (WEAK/ACCEPTABLE/STRONG)."""
-    setTestQuality(task_id, criterion_id, quality)
-    click.echo("{0} qualidade: {1}".format(criterion_id, quality))
+def criterionSetQuality(taskId, criterionId, quality):
+    setTestQuality(taskId, criterionId, quality)
+    click.echo("{0} qualidade: {1}".format(criterionId, quality))
     autoRegenTasksMd()
 
 
 @criterion.command("approve")
-@click.argument("task_id")
-@click.argument("criterion_id", default="all")
-def criterionApprove(task_id, criterion_id):
-    if criterion_id == "all":
-        approveAllCriteria(task_id)
-        click.echo("Todos os critérios aprovados para {0}.".format(task_id))
-    else:
-        approveCriterion(task_id, criterion_id)
-        click.echo("{0} aprovado.".format(criterion_id))
+@click.argument("taskId")
+@click.argument("criterionId", default="all")
+def criterionApprove(taskId, criterionId):
+    if criterionId == "all":
+        approveAllCriteria(taskId)
+        click.echo("Todos os critérios aprovados para {0}.".format(taskId))
+        autoRegenTasksMd()
+        return
+    approveCriterion(taskId, criterionId)
+    click.echo("{0} aprovado.".format(criterionId))
     autoRegenTasksMd()
 
 
@@ -294,24 +290,23 @@ def criterionApprove(task_id, criterion_id):
 
 @cli.group()
 def test():
-    """Registrar resultados de testes."""
     pass
 
 
 @test.command("record")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--method", required=True, help="Nome do método de teste")
 @click.option("--passed/--failed", default=True)
-def testRecord(task_id, method, passed):
-    recordTest(task_id, method, passed)
+def testRecord(taskId, method, passed):
+    recordTest(taskId, method, passed)
     click.echo("{0} → {1}".format(method, "✓ passou" if passed else "✗ falhou"))
     autoRegenTasksMd()
 
 
 @test.command("summary")
-@click.argument("task_id")
-def testSummaryCmd(task_id):
-    summary = getTestSummary(task_id)
+@click.argument("taskId")
+def testSummaryCmd(taskId):
+    summary = getTestSummary(taskId)
     click.echo("Total: {0}  Passou: {1}  Falhou: {2}".format(
         summary["total"], summary["passed"], summary["failed"]
     ))
@@ -324,18 +319,17 @@ def testSummaryCmd(task_id):
 
 @cli.group()
 def mutation():
-    """Registrar resultados de mutation testing."""
     pass
 
 
 @mutation.command("record")
-@click.argument("task_id")
-@click.option("--total", "total_mutants", required=True, type=int)
+@click.argument("taskId")
+@click.option("--total", "totalMutants", required=True, type=int)
 @click.option("--killed", required=True, type=int)
-def mutationRecord(task_id, total_mutants, killed):
-    recordMutation(task_id, total_mutants, killed)
-    score = (killed / total_mutants * 100) if total_mutants > 0 else 0.0
-    click.echo("{0:.0f}% ({1}/{2} mutantes mortos)".format(score, killed, total_mutants))
+def mutationRecord(taskId, totalMutants, killed):
+    recordMutation(taskId, totalMutants, killed)
+    score = (killed / totalMutants * 100) if totalMutants > 0 else 0.0
+    click.echo("{0:.0f}% ({1}/{2} mutantes mortos)".format(score, killed, totalMutants))
     autoRegenTasksMd()
 
 
@@ -343,59 +337,57 @@ def mutationRecord(task_id, total_mutants, killed):
 
 @cli.group()
 def incident():
-    """Gerenciar incidentes N3/N4."""
     pass
 
 
 @incident.command("create")
-@click.argument("task_id")
+@click.argument("taskId")
 @click.option("--severity", required=True, type=click.Choice(["crítico", "alto", "médio", "baixo"]))
 @click.option("--level", required=True, type=click.Choice(["N3", "N4"]))
-@click.option("--current", "current_behavior", default=None)
-@click.option("--expected", "expected_behavior", default=None)
-def incidentCreate(task_id, severity, level, current_behavior, expected_behavior):
-    createIncident(task_id, severity, level, current_behavior, expected_behavior)
-    click.echo("Incidente registrado para {0}.".format(task_id))
+@click.option("--current", "currentBehavior", default=None)
+@click.option("--expected", "expectedBehavior", default=None)
+def incidentCreate(taskId, severity, level, currentBehavior, expectedBehavior):
+    createIncident(taskId, severity, level, currentBehavior, expectedBehavior)
+    click.echo("Incidente registrado para {0}.".format(taskId))
 
 
 @incident.command("update")
-@click.argument("task_id")
-@click.option("--root-cause", "root_cause", default=None)
-@click.option("--confidence", "root_cause_confidence", default=None,
+@click.argument("taskId")
+@click.option("--root-cause", "rootCause", default=None)
+@click.option("--confidence", "rootCauseConfidence", default=None,
               type=click.Choice(["alta", "média", "baixa"]))
-def incidentUpdate(task_id, root_cause, root_cause_confidence):
-    updateIncident(task_id, rootCause=root_cause, rootCauseConfidence=root_cause_confidence)
-    click.echo("{0} atualizado.".format(task_id))
+def incidentUpdate(taskId, rootCause, rootCauseConfidence):
+    updateIncident(taskId, rootCause=rootCause, rootCauseConfidence=rootCauseConfidence)
+    click.echo("{0} atualizado.".format(taskId))
 
 
 # ─── AUDIT ────────────────────────────────────────────────────────────────────
 
 @cli.command("audit")
-@click.argument("task_id", default=None, required=False)
-@click.option("--project", "project_name", default=None)
-def audit(task_id, project_name):
-    """Auditoria completa da pipeline. Sem argumento: audita todas as tarefas."""
-    if task_id:
-        _auditOne(task_id)
-    else:
-        projectId = ensureProject(project_name) if project_name else None
-        tasks = listTasks(projectId=projectId)
-        if not tasks:
-            click.echo("Nenhuma tarefa encontrada.")
-            return
-        click.echo("{:<6} {:<35} {:<16} {:<12} {}".format("ID", "Título", "Fase", "Status", "Gates"))
-        click.echo("-" * 88)
-        for t in tasks:
-            data = getTaskAudit(t["id"])
-            if not data:
-                continue
-            passCount = sum(1 for g in data["gates"].values() if g["pass"])
-            total = len(data["gates"])
-            gateStr = "{0}/{1} PASS".format(passCount, total)
-            ready = "READY ✓" if passCount == total else "NOT READY"
-            click.echo("{:<6} {:<35} {:<16} {:<12} {:<12} {}".format(
-                t["id"], t["title"][:35], t["phase"], t["status"], gateStr, ready
-            ))
+@click.argument("taskId", default=None, required=False)
+@click.option("--project", "projectName", default=None)
+def audit(taskId, projectName):
+    if taskId:
+        _auditOne(taskId)
+        return
+    projectId = ensureProject(projectName) if projectName else None
+    tasks = listTasks(projectId=projectId)
+    if not tasks:
+        click.echo("Nenhuma tarefa encontrada.")
+        return
+    click.echo("{:<6} {:<35} {:<16} {:<12} {}".format("ID", "Título", "Fase", "Status", "Gates"))
+    click.echo("-" * 88)
+    for t in tasks:
+        data = getTaskAudit(t["id"])
+        if not data:
+            continue
+        passCount = sum(1 for g in data["gates"].values() if g["pass"])
+        total = len(data["gates"])
+        gateStr = "{0}/{1} PASS".format(passCount, total)
+        ready = "READY ✓" if passCount == total else "NOT READY"
+        click.echo("{:<6} {:<35} {:<16} {:<12} {:<12} {}".format(
+            t["id"], t["title"][:35], t["phase"], t["status"], gateStr, ready
+        ))
 
 
 def _auditOne(taskId):
@@ -419,14 +411,14 @@ def _auditOne(taskId):
             allPass = False
 
     click.echo("")
-    if allPass:
-        click.echo("Resultado: READY ✓")
-    else:
+    if not allPass:
         click.echo("Resultado: NOT READY ✗")
         click.echo("\nGates pendentes:")
         for gateName, gate in data["gates"].items():
             if not gate["pass"]:
                 click.echo("  • {0}: {1}".format(gateName, gate["detail"]))
+    if allPass:
+        click.echo("Resultado: READY ✓")
 
     click.echo("\nHistórico de fases:")
     for row in data["phaseHistory"]:
@@ -439,37 +431,38 @@ def _auditOne(taskId):
 
 @cli.group()
 def context():
-    """Contexto semântico via ChromaDB."""
     pass
 
 
 @context.command("add")
 @click.option("--text", required=True)
-@click.option("--type", "context_type", required=True, type=click.Choice(["decision", "lesson", "context"]))
-@click.option("--project", "project_name", default=None)
-@click.option("--task", "task_id", default=None)
-def contextAdd(text, context_type, project_name, task_id):
+@click.option("--type", "contextType", required=True, type=click.Choice(["decision", "lesson", "context"]))
+@click.option("--project", "projectName", default=None)
+@click.option("--task", "taskId", default=None)
+def contextAdd(text, contextType, projectName, taskId):
     if not vector.isAvailable():
         click.echo("ChromaDB não disponível. Instale: pip install chromadb", err=True)
         sys.exit(1)
-    projectId = ensureProject(project_name) if project_name else None
-    vector.addContext(text, context_type, projectId, task_id)
-    click.echo("Contexto ({0}) adicionado.".format(context_type))
+    projectId = ensureProject(projectName) if projectName else None
+    vector.addContext(text, contextType, projectId, taskId)
+    click.echo("Contexto ({0}) adicionado.".format(contextType))
 
 
 @context.command("search")
 @click.argument("query")
-@click.option("--project", "project_name", default=None)
-@click.option("--type", "context_type", default=None, type=click.Choice(["decision", "lesson", "context"]))
+@click.option("--project", "projectName", default=None)
+@click.option("--type", "contextType", default=None, type=click.Choice(["decision", "lesson", "context"]))
 @click.option("--n", default=5, type=int)
-def contextSearch(query, project_name, context_type, n):
+def contextSearch(query, projectName, contextType, n):
     if not vector.isAvailable():
         click.echo("ChromaDB não disponível.", err=True)
         sys.exit(1)
-    projectId = ensureProject(project_name) if project_name else None
+    projectId = ensureProject(projectName) if projectName else None
 
-    reqResults = vector.searchRequirements(query, projectId=projectId, n=n)
-    ctxResults = vector.searchContext(query, contextType=context_type, projectId=projectId, n=n)
+    from . import llm
+    expandedQuery = llm.expandQuery(query)
+    reqResults = vector.searchRequirements(expandedQuery, projectId=projectId, n=n)
+    ctxResults = vector.searchContext(expandedQuery, contextType=contextType, projectId=projectId, n=n)
 
     if not reqResults and not ctxResults:
         click.echo("Nenhum resultado para: {0}".format(query))
@@ -492,10 +485,9 @@ def contextSearch(query, project_name, context_type, n):
 
 @cli.command("index")
 @click.argument("directory", default=".")
-@click.option("--update-claude-md", is_flag=True, default=False,
+@click.option("--update-claude-md", "updateClaudeMd", is_flag=True, default=False,
               help="Atualiza a seção Contexto do CLAUDE.md no diretório.")
-def indexCmd(directory, update_claude_md):
-    """Descobre projetos em directory e indexa código-fonte + docs no ChromaDB."""
+def indexCmd(directory, updateClaudeMd):
     from pathlib import Path
     if not vector.isAvailable():
         click.echo("ChromaDB não disponível. Instale: pip install chromadb", err=True)
@@ -506,7 +498,7 @@ def indexCmd(directory, update_claude_md):
         return
     total = sum(r["codeUnits"] for r in results)
     click.echo("\n{0} projeto(s) — {1} unidades indexadas.".format(len(results), total))
-    if update_claude_md:
+    if updateClaudeMd:
         claudeMdPath = Path(directory) / "CLAUDE.md"
         if claudeMdPath.exists():
             import re
@@ -518,24 +510,22 @@ def indexCmd(directory, update_claude_md):
 
 
 @cli.command("index-file")
-@click.argument("file_path")
-@click.option("--project", "project_name", default=None)
-def indexFileCmd(file_path, project_name):
-    """Re-indexa um único arquivo Python (chamado pelo hook post-commit)."""
+@click.argument("filePath")
+@click.option("--project", "projectName", default=None)
+def indexFileCmd(filePath, projectName):
     from pathlib import Path
     if not vector.isAvailable():
-        sys.exit(0)  # silencioso — chamado por hook
-    path = Path(file_path).resolve()
+        sys.exit(0)
+    path = Path(filePath).resolve()
     if not path.exists() or path.suffix != ".py":
         sys.exit(0)
-    # Detecta projeto pelo git root
     import subprocess
     result = subprocess.run(
         ["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"],
         capture_output=True, text=True,
     )
     projectRoot = Path(result.stdout.strip()) if result.returncode == 0 else path.parent
-    name = project_name or projectRoot.name
+    name = projectName or projectRoot.name
     projectId = ensureProject(name, str(projectRoot))
     n = indexFile(path, projectId, projectRoot=projectRoot, force=True)
     click.echo("Re-indexado: {0} ({1} unidades)".format(path.name, n))
@@ -543,15 +533,16 @@ def indexFileCmd(file_path, project_name):
 
 @cli.command("search")
 @click.argument("query")
-@click.option("--project", "project_name", default=None)
+@click.option("--project", "projectName", default=None)
 @click.option("--n", default=10, type=int, help="Número de resultados.")
-def searchCmd(query, project_name, n):
-    """Busca semântica no código-fonte indexado."""
+def searchCmd(query, projectName, n):
     if not vector.isAvailable():
         click.echo("ChromaDB não disponível.", err=True)
         sys.exit(1)
-    projectId = ensureProject(project_name) if project_name else None
-    results = vector.searchCode(query, projectId=projectId, n=n)
+    projectId = ensureProject(projectName) if projectName else None
+    from . import llm
+    expandedQuery = llm.expandQuery(query)
+    results = vector.searchCode(expandedQuery, projectId=projectId, n=n)
     if not results:
         click.echo("Nenhum resultado para: {0}".format(query))
         return
@@ -572,35 +563,27 @@ def searchCmd(query, project_name, n):
 
 @cli.group()
 def export():
-    """Exportar views a partir do banco de dados."""
     pass
 
 
 @export.command("tasks-md")
-@click.option("--project", "project_name", default=None)
-@click.option("--task", "task_id", default=None)
+@click.option("--project", "projectName", default=None)
+@click.option("--task", "taskId", default=None)
 @click.option("--output", default=None, help="Caminho do arquivo. Padrão: stdout.")
-def exportTasksMd(project_name, task_id, output):
-    if task_id:
-        projectId = None
-    elif project_name:
-        projectId = ensureProject(project_name)
-    else:
-        projectId = detectProject()
-
-    content = generateTasksMd(projectId=projectId, taskId=task_id)
-
+def exportTasksMd(projectName, taskId, output):
+    projectId = None if taskId else (ensureProject(projectName) if projectName else detectProject())
+    content = generateTasksMd(projectId=projectId, taskId=taskId)
     if output:
         Path(output).write_text(content, encoding="utf-8")
         click.echo("TASKS.md gerado em {0}".format(output))
-    else:
-        click.echo(content)
+        return
+    click.echo(content)
 
 
 @export.command("metrics")
-@click.option("--project", "project_name", default=None)
-def exportMetrics(project_name):
-    projectId = ensureProject(project_name) if project_name else None
+@click.option("--project", "projectName", default=None)
+def exportMetrics(projectName):
+    projectId = ensureProject(projectName) if projectName else None
     tasks = listTasks(projectId=projectId)
 
     if not tasks:
