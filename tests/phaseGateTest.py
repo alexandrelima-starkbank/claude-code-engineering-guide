@@ -1,0 +1,251 @@
+import os
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+from unittest import TestCase
+from unittest.mock import patch
+
+PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "pipeline-cli"))
+
+from pipeline import db
+
+
+@contextmanager
+def useTempDb():
+    tmpDir = tempfile.mkdtemp()
+    tmpPath = Path(tmpDir) / "test_pipeline.db"
+    db.closeConn()
+    with patch.object(db, "DB_PATH", tmpPath):
+        try:
+            yield
+        finally:
+            db.closeConn()
+
+
+class PhaseGateTest(TestCase):
+
+    def _setup(self):
+        db.ensureProject("proj")
+        return db.createTask("proj", "Test task")
+
+    def _addApprovedEars(self, taskId, text="System SHALL do X"):
+        earsId = db.addEars(taskId, "event", text)
+        db.approveEars(taskId, earsId)
+        return earsId
+
+    def _addApprovedCriterion(self, taskId, earsId, testMethod="testSomething"):
+        cId = db.addCriterion(taskId, earsId, "scenario", "then text", testMethod=testMethod)
+        db.approveCriterion(taskId, cId)
+        db.setTestQuality(taskId, cId, "STRONG")
+        return cId
+
+    # ── R01: requirements → spec ──────────────────────────────────────────────
+
+    def testAdvanceToSpec_WithUnapprovedEars_Rejects(self):
+        # Critério: lança ValueError com mensagem identificando os EARS não aprovados
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            db.addEars(taskId, "event", "System SHALL do X")
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "spec")
+
+            self.assertIn("EARS", str(ctx.exception))
+
+    def testAdvanceToSpec_WithAllEarsApproved_Succeeds(self):
+        # Critério: executa sem erro e fase muda para spec
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            self._addApprovedEars(taskId)
+
+            db.advancePhase(taskId, "spec")
+
+            self.assertEqual(db.getTask(taskId)["phase"], "spec")
+
+    # ── R02: spec → tests ─────────────────────────────────────────────────────
+
+    def testAdvanceToTests_WithEarsHavingNoCriterion_Rejects(self):
+        # Critério: lança ValueError identificando o EARS sem critério
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            self._addApprovedEars(taskId)
+            db.advancePhase(taskId, "spec")
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "tests")
+
+            self.assertIn("critério", str(ctx.exception))
+
+    def testAdvanceToTests_WithCriterionMissingTestMethod_Rejects(self):
+        # Critério: lança ValueError identificando o critério sem testMethod
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            earsId = self._addApprovedEars(taskId)
+            db.advancePhase(taskId, "spec")
+            cId = db.addCriterion(taskId, earsId, "scenario", "then", testMethod=None)
+            db.approveCriterion(taskId, cId)
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "tests")
+
+            self.assertIn("testMethod", str(ctx.exception))
+
+    def testAdvanceToTests_WithCompleteCriteria_Succeeds(self):
+        # Critério: executa sem erro quando cada EARS tem critério aprovado com testMethod
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            earsId = self._addApprovedEars(taskId)
+            db.advancePhase(taskId, "spec")
+            self._addApprovedCriterion(taskId, earsId, testMethod="testSomething")
+
+            db.advancePhase(taskId, "tests")
+
+            self.assertEqual(db.getTask(taskId)["phase"], "tests")
+
+    # ── R03: tests → implementation ───────────────────────────────────────────
+
+    def testAdvanceToImplementation_WithMissingTestResult_Rejects(self):
+        # Critério: lança ValueError identificando testFoo como não executado
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            earsId = self._addApprovedEars(taskId)
+            db.advancePhase(taskId, "spec")
+            self._addApprovedCriterion(taskId, earsId, testMethod="testFoo")
+            db.advancePhase(taskId, "tests")
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "implementation")
+
+            self.assertIn("testFoo", str(ctx.exception))
+
+    def testAdvanceToImplementation_WithFailedTestResult_Rejects(self):
+        # Critério: lança ValueError quando testMethod tem testResult com passed=0
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            earsId = self._addApprovedEars(taskId)
+            db.advancePhase(taskId, "spec")
+            self._addApprovedCriterion(taskId, earsId, testMethod="testFoo")
+            db.advancePhase(taskId, "tests")
+            db.recordTest(taskId, "testFoo", False)
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "implementation")
+
+            self.assertIn("testFoo", str(ctx.exception))
+
+    def testAdvanceToImplementation_WithAllMethodsPassing_Succeeds(self):
+        # Critério: executa sem erro quando todos testMethods têm testResult passed=1
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            earsId = self._addApprovedEars(taskId)
+            db.advancePhase(taskId, "spec")
+            self._addApprovedCriterion(taskId, earsId, testMethod="testFoo")
+            db.advancePhase(taskId, "tests")
+            db.recordTest(taskId, "testFoo", True)
+
+            db.advancePhase(taskId, "implementation")
+
+            self.assertEqual(db.getTask(taskId)["phase"], "implementation")
+
+    # ── R04: mutation → done ──────────────────────────────────────────────────
+
+    def _advanceToMutation(self, taskId):
+        earsId = self._addApprovedEars(taskId)
+        db.advancePhase(taskId, "spec")
+        self._addApprovedCriterion(taskId, earsId, testMethod="testFoo")
+        db.advancePhase(taskId, "tests")
+        db.recordTest(taskId, "testFoo", True)
+        db.advancePhase(taskId, "implementation")
+        db.advancePhase(taskId, "mutation")
+
+    def testAdvanceToDone_WithNoMutationResults_Rejects(self):
+        # Critério: lança ValueError quando nenhum registro de mutação existe
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            self._advanceToMutation(taskId)
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "done")
+
+            self.assertIn("mutation", str(ctx.exception).lower())
+
+    def testAdvanceToDone_WithPartialMutationScore_Rejects(self):
+        # Critério: lança ValueError quando mutation score < 100%
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            self._advanceToMutation(taskId)
+            db.recordMutation(taskId, 10, 9)
+
+            with self.assertRaises(ValueError) as ctx:
+                db.advancePhase(taskId, "done")
+
+            self.assertIn("100", str(ctx.exception))
+
+    def testAdvanceToDone_WithFullMutationScore_Succeeds(self):
+        # Critério: executa sem erro quando mutation score = 100%
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+            self._advanceToMutation(taskId)
+            db.recordMutation(taskId, 10, 10)
+
+            db.advancePhase(taskId, "done")
+
+            self.assertEqual(db.getTask(taskId)["phase"], "done")
+
+    # ── R05: pipeline phase check command ─────────────────────────────────────
+
+    def testPhaseCheck_WithFailingGate_PrintsFailAndExitsOne(self):
+        # Critério: output contém FAIL para o gate afetado e exit code é 1
+        fakeGates = [("EARS aprovados", False, "EARS não aprovados: R01")]
+        with patch("pipeline.cli.checkPhaseGates", return_value=fakeGates):
+            from click.testing import CliRunner
+            from pipeline.cli import cli
+            runner = CliRunner()
+            result = runner.invoke(cli, ["phase", "check", "T1", "--to", "spec"])
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("FAIL", result.output)
+
+    def testPhaseCheck_WithAllGatesPassing_ExitsZero(self):
+        # Critério: todos os gates mostram PASS e exit code é 0
+        fakeGates = [
+            ("qualidade", True, "2 critérios revisados"),
+            ("Testes passando", True, "2 testMethods passing"),
+        ]
+        with patch("pipeline.cli.checkPhaseGates", return_value=fakeGates):
+            from click.testing import CliRunner
+            from pipeline.cli import cli
+            runner = CliRunner()
+            result = runner.invoke(cli, ["phase", "check", "T1", "--to", "implementation"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("PASS", result.output)
+
+    # ── R06: no --force flag ──────────────────────────────────────────────────
+
+    def testPhaseAdvance_ForceFlagNotAccepted(self):
+        # Critério: pipeline phase advance com --force falha com 'no such option'
+        with useTempDb():
+            db.initDb()
+            taskId = self._setup()
+
+            from click.testing import CliRunner
+            from pipeline.cli import cli
+            runner = CliRunner()
+            result = runner.invoke(cli, ["phase", "advance", taskId, "--to", "spec", "--force"])
+
+            self.assertEqual(result.exit_code, 2)
+            self.assertIn("no such option", result.output.lower())

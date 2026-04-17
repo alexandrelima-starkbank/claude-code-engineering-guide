@@ -262,8 +262,10 @@ class PhaseAdvanceTest(TestCase):
             db.addCriterion(taskId, "R01", "scenario", "then text",
                             testMethod="testSomething")
             db.setTestQuality(taskId, "C01", "ACCEPTABLE")
+            db.recordTest(taskId, "testSomething", True)
             db.advancePhase(taskId, "implementation")
             db.advancePhase(taskId, "mutation")
+            db.recordMutation(taskId, 1, 1)
             db.advancePhase(taskId, "done")
             task = db.getTask(taskId)
             self.assertEqual(task["phase"], "done")
@@ -291,6 +293,7 @@ class PhaseAdvanceTest(TestCase):
             db.addCriterion(taskId, "R01", "scenario", "then text",
                             testMethod="testSomething")
             db.setTestQuality(taskId, "C01", "STRONG")
+            db.recordTest(taskId, "testSomething", True)
             db.advancePhase(taskId, "implementation")
             task = db.getTask(taskId)
             self.assertEqual(task["phase"], "implementation")

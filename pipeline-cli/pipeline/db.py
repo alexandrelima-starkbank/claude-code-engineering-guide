@@ -224,6 +224,90 @@ def updateTask(taskId, **kwargs):
 
 # --- Phase transitions ---
 
+def _checkPhaseGates(task, toPhase):
+    taskId = task["id"]
+    fromPhase = task["phase"]
+    results = []
+
+    if fromPhase == "requirements" and toPhase == "spec":
+        ears = listEars(taskId)
+        unapproved = [r for r in ears if not r["approved"]]
+        passed = not unapproved
+        detail = (
+            "EARS não aprovados: {0}".format(", ".join(r["id"] for r in unapproved))
+            if unapproved
+            else "{0} EARS".format(len(ears))
+        )
+        results.append(("EARS aprovados", passed, detail))
+
+    if fromPhase == "spec" and toPhase == "tests":
+        ears = listEars(taskId)
+        criteria = listCriteria(taskId)
+        approvedCriteria = [c for c in criteria if c["approved"]]
+        earsWithoutCriterion = [
+            r for r in ears
+            if not any(c["earsId"] == r["id"] for c in approvedCriteria)
+        ]
+        passedCoverage = not earsWithoutCriterion
+        detailCoverage = (
+            "EARS sem critério: {0}".format(", ".join(r["id"] for r in earsWithoutCriterion))
+            if earsWithoutCriterion
+            else "todos os EARS cobertos"
+        )
+        results.append(("Cobertura", passedCoverage, detailCoverage))
+        withoutMethod = [c for c in approvedCriteria if not c.get("testMethod")]
+        passedMethod = not withoutMethod
+        detailMethod = (
+            "critérios sem testMethod: {0}".format(", ".join(c["id"] for c in withoutMethod))
+            if withoutMethod
+            else "{0} critérios com testMethod".format(len(approvedCriteria))
+        )
+        results.append(("testMethod", passedMethod, detailMethod))
+
+    if fromPhase == "tests" and toPhase == "implementation":
+        criteria = listCriteria(taskId)
+        withMethod = [c for c in criteria if c.get("testMethod")]
+        unreviewed = [c for c in withMethod if c.get("testQuality") not in ("ACCEPTABLE", "STRONG")]
+        passedQuality = not unreviewed
+        detailQuality = (
+            "{0} critério(s) sem qualidade ({1})".format(
+                len(unreviewed), ", ".join(c["id"] for c in unreviewed),
+            )
+            if unreviewed
+            else "{0} critérios revisados".format(len(withMethod))
+        )
+        results.append(("qualidade", passedQuality, detailQuality))
+        notPassing = [
+            c["testMethod"] for c in withMethod
+            if getLatestTestResult(taskId, c["testMethod"]) != 1
+        ]
+        passedTests = not notPassing
+        detailTests = (
+            "sem resultado passing: {0}".format(", ".join(notPassing))
+            if notPassing
+            else "{0} testMethods passing".format(len(withMethod))
+        )
+        results.append(("Testes passando", passedTests, detailTests))
+
+    if fromPhase == "mutation" and toPhase == "done":
+        mutation = getLatestMutation(taskId)
+        if mutation is None:
+            results.append(("Mutation score", False, "nenhum resultado de mutação registrado"))
+        if mutation is not None and mutation["score"] < 100.0:
+            results.append(("Mutation score", False, "score {0:.0f}% — exigido 100%".format(mutation["score"])))
+        if mutation is not None and mutation["score"] >= 100.0:
+            results.append(("Mutation score", True, "100%"))
+
+    return results
+
+
+def checkPhaseGates(taskId, toPhase):
+    task = getTask(taskId)
+    if not task:
+        raise ValueError("Task {0} não encontrada".format(taskId))
+    return _checkPhaseGates(task, toPhase)
+
+
 def advancePhase(taskId, toPhase, reason=None):
     if toPhase not in PHASES:
         raise ValueError("Fase inválida: {0}. Válidas: {1}".format(toPhase, ", ".join(PHASES)))
@@ -239,19 +323,11 @@ def advancePhase(taskId, toPhase, reason=None):
                 task["phase"], toPhase, nextPhase
             )
         )
-    # Gate: tests → implementation requer qualidade de testes avaliada
-    if task["phase"] == "tests" and toPhase == "implementation":
-        criteria = listCriteria(taskId)
-        withMethod = [c for c in criteria if c.get("testMethod")]
-        unreviewed = [c for c in withMethod if c.get("testQuality") not in ("ACCEPTABLE", "STRONG")]
-        if unreviewed:
-            ids = ", ".join(c["id"] for c in unreviewed)
-            raise ValueError(
-                "Gate de qualidade de testes: {0} critério(s) sem qualidade ACCEPTABLE ou STRONG ({1}). "
-                "Use: pipeline criterion set-quality {2} <ID> ACCEPTABLE|STRONG".format(
-                    len(unreviewed), ids, taskId
-                )
-            )
+    gates = _checkPhaseGates(task, toPhase)
+    failing = [(name, msg) for name, passed, msg in gates if not passed]
+    if failing:
+        details = "; ".join("{0}: {1}".format(name, msg) for name, msg in failing)
+        raise ValueError("Gate: {0}".format(details))
     with getConn() as conn:
         conn.execute(
             "UPDATE tasks SET phase = ?, updatedAt = datetime('now') WHERE id = ?",

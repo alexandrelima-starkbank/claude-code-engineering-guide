@@ -6,7 +6,7 @@ from pathlib import Path
 from .db import (
     initDb, detectProject, ensureProject, listProjects,
     createTask, getTask, listTasks, updateTask,
-    advancePhase, getPhaseHistory, PHASES,
+    advancePhase, checkPhaseGates, getPhaseHistory, PHASES,
     addEars, listEars, approveEars, approveAllEars,
     addCriterion, listCriteria, approveCriterion, approveAllCriteria,
     setTestQuality,
@@ -156,6 +156,27 @@ def phaseAdvance(taskId, toPhase, reason):
         autoRegenTasksMd()
     except ValueError as e:
         click.echo("ERRO: {0}".format(e), err=True)
+        sys.exit(1)
+
+
+@phase.command("check")
+@click.argument("taskId")
+@click.option("--to", "toPhase", required=True, type=click.Choice(PHASES))
+def phaseCheck(**kwargs):
+    taskId = kwargs["taskid"]
+    toPhase = kwargs["toPhase"]
+    try:
+        gates = checkPhaseGates(taskId, toPhase)
+    except ValueError as e:
+        click.echo("ERRO: {0}".format(e), err=True)
+        sys.exit(1)
+    anyFail = False
+    for name, passed, detail in gates:
+        icon = "PASS" if passed else "FAIL"
+        click.echo("[{0}] {1}: {2}".format(icon, name, detail))
+        if not passed:
+            anyFail = True
+    if anyFail:
         sys.exit(1)
 
 
