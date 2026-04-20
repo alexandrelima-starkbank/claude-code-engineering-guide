@@ -3,6 +3,15 @@ import click
 from json import dumps
 from pathlib import Path
 
+_origParseDecls = click.core.Argument._parse_decls
+def _patchedParseDecls(self, *args):
+    name, opts, secondary = _origParseDecls(self, *args)
+    decls = args[0]
+    if name and len(decls) == 1:
+        name = decls[0].replace("-", "_")
+    return name, opts, secondary
+click.core.Argument._parse_decls = _patchedParseDecls
+
 from .db import (
     initDb, detectProject, ensureProject, listProjects,
     createTask, getTask, listTasks, updateTask,
@@ -162,9 +171,7 @@ def phaseAdvance(taskId, toPhase, reason):
 @phase.command("check")
 @click.argument("taskId")
 @click.option("--to", "toPhase", required=True, type=click.Choice(PHASES))
-def phaseCheck(**kwargs):
-    taskId = kwargs["taskid"]
-    toPhase = kwargs["toPhase"]
+def phaseCheck(taskId, toPhase):
     try:
         gates = checkPhaseGates(taskId, toPhase)
     except ValueError as e:
@@ -493,13 +500,13 @@ def contextSearch(query, projectName, contextType, n):
         click.echo("\n── Requisitos similares ──")
         for r in reqResults:
             meta = r["metadata"]
-            click.echo("  [{0}:{1}] {2}".format(meta.get("taskId", "?"), meta.get("reqId", "?"), r["text"][:120]))
+            click.echo("  [{0}][{1}:{2}] {3}".format(meta.get("projectId", "?"), meta.get("taskId", "?"), meta.get("reqId", "?"), r["text"][:120]))
 
     if ctxResults:
         click.echo("\n── Contexto relevante ──")
         for r in ctxResults:
             meta = r["metadata"]
-            click.echo("  [{0}] {1}".format(meta.get("type", "?"), r["text"][:150]))
+            click.echo("  [{0}][{1}] {2}".format(meta.get("projectId", "?"), meta.get("type", "?"), r["text"][:150]))
 
 
 # ─── INDEX ────────────────────────────────────────────────────────────────────
@@ -569,7 +576,8 @@ def searchCmd(query, projectName, n):
         return
     for r in results:
         meta = r["metadata"]
-        click.echo("{0}:{1}  {2}  [{3}]".format(
+        click.echo("[{0}] {1}:{2}  {3}  [{4}]".format(
+            meta.get("projectId", "?"),
             meta.get("file", "?"),
             meta.get("line", "?"),
             meta.get("qualifiedName", "?"),
