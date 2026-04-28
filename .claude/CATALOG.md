@@ -63,6 +63,22 @@ Protocolo completo: `CLAUDE.md → Intake Protocol`
 
 ---
 
+## Busca e Exploração de Código
+
+Quatro mecanismos complementares — escolha pelo tipo de pergunta:
+
+| Mecanismo | Quando usar | Comando |
+|---|---|---|
+| `pipeline search` | Busca semântica: "o que faz X?", "onde está Y?" — retorna arquivos por similaridade de embedding | `pipeline search "<termo>" --n 15` |
+| `pipeline context search` | Buscar decisões arquiteturais e EARS anteriores | `pipeline context search "<decisão>"` |
+| `codegraph` MCP | Análise estrutural: grafo de chamadas, dependências, impacto de função, entrypoints — usa análise sintática (AST), não semântica | `codegraph_search`, `codegraph_dependencies`, `codegraph_impact` |
+| `semanticode` MCP | Busca semântica avançada direta no servidor local (alternativa ao `pipeline search` quando ChromaDB está ativo) | `semanticode_analyze` |
+| `grep` / Bash | Busca exata: string literal, nome de função, import específico — mais rápido quando o alvo é conhecido | `grep -r "nomeDaFuncao" .` |
+
+**Regra de escolha:** se você sabe o nome exato → grep. Se quer entender o que algo faz ou encontrar implementações similares → `pipeline search`. Se quer traçar o grafo de chamadas ou dependências estruturais → `codegraph`. Se quer cruzar com decisões anteriores → `pipeline context search`.
+
+---
+
 ## Agentes disponíveis (invocados internamente)
 
 | Agente | Invocado por | Responsabilidade |

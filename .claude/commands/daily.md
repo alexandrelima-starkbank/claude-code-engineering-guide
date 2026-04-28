@@ -4,8 +4,19 @@ allowed-tools: Bash
 ---
 # Daily Report
 
+Se o usuário passou `--reportable`, execute:
 ```bash
-pipeline task list --format json | python3 -c "
+pipeline task list --reportable --format json | python3 -c "..."
+```
+
+Caso contrário, execute:
+```bash
+pipeline task list --format json | python3 -c "..."
+```
+
+Em ambos os casos, use o seguinte script python (substituindo `...`):
+
+```python
 import sys, json
 from datetime import date, timedelta
 
@@ -33,25 +44,22 @@ done.sort(key=lambda t: t.get('updatedAt', ''), reverse=True)
 prev_label = 'sexta-feira' if weekday == 0 else 'ontem'
 result = {'today': today, 'yesterday': yesterday, 'prev_label': prev_label, 'active': active, 'done': done}
 print(json.dumps(result, ensure_ascii=False, indent=2))
-"
 ```
 
 Com o JSON resultante, gere o relatório no seguinte formato:
 
 ```
 {today} -> hoje
-[ ] <resumo da tarefa>
-[ ] <resumo da tarefa>
+[ ] <resumo da tarefa ativa>
+[X] <resumo da tarefa concluída hoje>
 
 {yesterday} -> {prev_label}
-[X] <resumo da tarefa>
+[X] <resumo da tarefa concluída ontem>
 ```
 
 Regras:
-- `[ ]` para `em andamento` e `pendente`
-- `[X]` para `concluído`
-- Tarefas ativas (`active`) listadas primeiro sob a data de hoje
-- Tarefas concluídas (`done`) agrupadas pela data de `updatedAt[:10]`
+- `[ ]` para `em andamento` e `pendente` — listadas sob a data de hoje
+- `[X]` para `concluído` — agrupadas pela data de `updatedAt[:10]`
 - Resumo = título da tarefa, sem ID, sem projeto, sem fase
 - Se `active` e `done` ambos vazios: `Nenhuma atividade registrada.`
 - Sem texto adicional além do formato acima

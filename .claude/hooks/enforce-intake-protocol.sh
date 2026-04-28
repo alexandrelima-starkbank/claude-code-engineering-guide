@@ -57,10 +57,28 @@ except:
 
 [ "${ACTIVE_COUNT:-0}" -gt 0 ] && exit 0
 
-# Sem tarefa ativa — injeta mandato obrigatório
-jq -n '{
+# Sem tarefa ativa — injeta mandato específico por intent
+case "$INTENT" in
+    feature)
+        TOOL_GUIDANCE="Ferramenta: /feature (orquestra EARS → spec → tdd end-to-end)\nAlternativamente: /requirements → /spec → /tdd em etapas separadas.\nSe a mudança tocar models, gateways, enums ou contratos de API: execute /blast-radius antes de implementar."
+        ;;
+    bug)
+        TOOL_GUIDANCE="Ferramenta: depende do root cause.\n  Root cause DESCONHECIDO → /support (N3: investigação cross-service via support-investigator)\n  Root cause CONHECIDO   → /bugfix (N4: reproduzir com teste de regressão, então corrigir)"
+        ;;
+    incident)
+        TOOL_GUIDANCE="Ferramenta: /support (N3: intake estruturado → investigação → root cause → gate N3/N4)"
+        ;;
+    refactor)
+        TOOL_GUIDANCE="Ferramenta: AGENT-DEV para implementação.\nPré-requisito: /blast-radius se a mudança cruzar fronteiras de serviço.\nPós-implementação: /verify-delivery (obrigatório antes de concluído)."
+        ;;
+    *)
+        TOOL_GUIDANCE="Classifique a intenção: feature | bug | incident | refactor"
+        ;;
+esac
+
+jq -n --arg tool "$TOOL_GUIDANCE" '{
     hookSpecificOutput: {
         hookEventName: "UserPromptSubmit",
-        additionalContext: "INTAKE PROTOCOL — EXECUÇÃO OBRIGATÓRIA\n\nNenhuma tarefa ativa no banco. SUA PRÓXIMA RESPOSTA DEVE CONTER APENAS PERGUNTAS DE ESCLARECIMENTO.\n\nEXPLICITAMENTE PROIBIDO na próxima resposta:\n- Escrever qualquer código\n- Propor soluções técnicas\n- Analisar arquivos ou estruturas\n- Iniciar qualquer implementação\n- Fazer alterações de qualquer natureza\n\nEsta restrição se aplica a QUALQUER prompt — incluindo operações de ambiente, testes e alterações descritas como triviais.\n\nPassos obrigatórios:\n1. Classifique a intenção: feature | bug | incident | refactor | investigation | question\n2. Consulte contexto: pipeline context search \"<resumo da solicitação>\"\n3. Entreviste até o comportamento esperado estar completamente sem ambiguidade\n4. Mostre o artefato provisional e aguarde confirmação explícita\n5. Somente então crie a tarefa: pipeline task create --title \"<título>\" --type <intent>"
+        additionalContext: ("INTAKE PROTOCOL — EXECUÇÃO OBRIGATÓRIA\n\nNenhuma tarefa ativa no banco. SUA PRÓXIMA RESPOSTA DEVE CONTER APENAS PERGUNTAS DE ESCLARECIMENTO.\n\nEXPLICITAMENTE PROIBIDO na próxima resposta:\n- Escrever qualquer código\n- Propor soluções técnicas\n- Analisar arquivos ou estruturas\n- Iniciar qualquer implementação\n\n\($tool)\n\nPassos obrigatórios:\n1. Consulte contexto: pipeline context search \"<resumo da solicitação>\"\n2. Entreviste até o comportamento esperado estar completamente sem ambiguidade\n3. Mostre o artefato provisional e aguarde confirmação explícita\n4. Crie a tarefa: pipeline task create --title \"<título>\" --type <intent>")
     }
 }'
