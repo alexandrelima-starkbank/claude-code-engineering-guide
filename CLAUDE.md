@@ -315,8 +315,12 @@ ruff check .
 ruff check --fix .
 ```
 
-Regras ativas: `E` (pycodestyle errors), `F` (pyflakes), `W` (warnings), `I` (isort).
+Regras ativas: `E` (pycodestyle errors), `F` (pyflakes), `W` (warnings).
 Regras de nomenclatura (`N`) estão **desabilitadas** — a codebase usa camelCase.
+
+Ordenação de imports é gerenciada por `sortImports.py` (`.claude/hooks/sortImports.py`),
+não pelo ruff. O hook `sort-imports-on-edit.sh` invoca `sortImports.py` automaticamente
+após edições em arquivos `.py`.
 
 O hook `check-python-style.sh` detecta automaticamente após cada edição:
 - f-strings (use `.format()`)

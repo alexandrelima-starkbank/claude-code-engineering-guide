@@ -1,7 +1,7 @@
-import json
 import os
-import subprocess
+import json
 import tempfile
+import subprocess
 from unittest import TestCase, main, skipUnless
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -70,13 +70,26 @@ _Nenhuma tarefa concluída ainda._
 """
 
 
+def makeFakePipeline(tmpdir):
+    fakeBin = os.path.join(tmpdir, "_bin")
+    os.makedirs(fakeBin, exist_ok=True)
+    fakePipeline = os.path.join(fakeBin, "pipeline")
+    with open(fakePipeline, "w") as f:
+        f.write("#!/bin/bash\nexit 1\n")
+    os.chmod(fakePipeline, 0o755)
+    return fakeBin
+
+
 def run(tasksContent):
     with tempfile.TemporaryDirectory() as tmpdir:
         subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
+        fakeBin = makeFakePipeline(tmpdir)
         tasks_path = os.path.join(tmpdir, "TASKS.md")
         with open(tasks_path, "w", encoding="utf-8") as f:
             f.write(tasksContent)
 
+        env = {**os.environ, "HOME": os.environ.get("HOME", "/tmp")}
+        env["PATH"] = fakeBin + ":" + env.get("PATH", "")
         payload = json.dumps({"prompt": "test"})
         result = subprocess.run(
             ["bash", HOOK],
@@ -84,7 +97,7 @@ def run(tasksContent):
             capture_output=True,
             text=True,
             cwd=tmpdir,
-            env={**os.environ, "HOME": os.environ.get("HOME", "/tmp")},
+            env=env,
         )
         return result
 
@@ -95,6 +108,9 @@ class TasksContextTest(TestCase):
     def testNoTasksFile_silentExit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
+            fakeBin = makeFakePipeline(tmpdir)
+            env = {**os.environ}
+            env["PATH"] = fakeBin + ":" + env.get("PATH", "")
             payload = json.dumps({"prompt": "test"})
             result = subprocess.run(
                 ["bash", HOOK],
@@ -102,6 +118,7 @@ class TasksContextTest(TestCase):
                 capture_output=True,
                 text=True,
                 cwd=tmpdir,
+                env=env,
             )
             self.assertEqual(result.returncode, 0)
             self.assertEqual(result.stdout.strip(), "")

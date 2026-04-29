@@ -1,7 +1,7 @@
 import os
-import subprocess
-import tempfile
 import shutil
+import tempfile
+import subprocess
 from unittest import TestCase, main
 
 PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
@@ -38,7 +38,6 @@ class PlaceholderValidationTest(TestCase):
 
     def setUp(self):
         self.workdir = makeWorkdir(
-            pyproject="[tool.ruff.lint.isort]\nknown-first-party = [\"myapp\"]\n",
             mutmut="[mutmut]\npaths_to_mutate = \"myapp/\"\n",
         )
 
@@ -48,19 +47,6 @@ class PlaceholderValidationTest(TestCase):
     def testValidConfig_exits0(self):
         result = runSetup(self.workdir)
         self.assertEqual(result.returncode, 0)
-
-    def testKnownFirstPartyPlaceholder_exits1(self):
-        with open(os.path.join(self.workdir, "pyproject.toml"), "w") as f:
-            f.write("[tool.ruff.lint.isort]\nknown-first-party = []\n")
-        result = runSetup(self.workdir)
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("known-first-party", result.stdout)
-
-    def testKnownFirstPartyPlaceholder_suggestsConfigureSh(self):
-        with open(os.path.join(self.workdir, "pyproject.toml"), "w") as f:
-            f.write("[tool.ruff.lint.isort]\nknown-first-party = []\n")
-        result = runSetup(self.workdir)
-        self.assertIn("configure.sh", result.stdout)
 
     def testPathsToMutatePlaceholder_exits1(self):
         with open(os.path.join(self.workdir, "mutmut.toml"), "w") as f:
@@ -91,6 +77,30 @@ class NoPyprojectTest(TestCase):
     def testNoMutmut_exits0(self):
         result = runSetup(self.workdir)
         self.assertEqual(result.returncode, 0)
+
+
+class SortImportsCopyTest(TestCase):
+
+    def setUp(self):
+        self.workdir = makeWorkdir()
+        hooks_dir = os.path.join(self.workdir, ".claude", "hooks")
+        with open(os.path.join(hooks_dir, "sortImports.py"), "w") as f:
+            f.write("# sortImports placeholder\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.workdir, ignore_errors=True)
+
+    def testSetup_copiesSortImports(self):
+        with tempfile.TemporaryDirectory() as fakeHome:
+            result = subprocess.run(
+                ["bash", SETUP],
+                capture_output=True,
+                text=True,
+                cwd=self.workdir,
+                env={**os.environ, "HOME": fakeHome},
+            )
+            dest = os.path.join(fakeHome, ".config", "sortImports.py")
+            self.assertTrue(os.path.exists(dest))
 
 
 class PermissionsTest(TestCase):

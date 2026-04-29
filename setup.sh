@@ -127,23 +127,6 @@ else
     fi
 fi
 
-# ─── pyproject.toml — known-first-party ──────────────────────────────────────
-# Ignorado em workspace: pyproject.toml na raiz é irrelevante quando há sub-repos.
-IS_WORKSPACE=0
-for _d in */; do
-    [ -d "$_d" ] || continue
-    [[ "${_d%/}" == .* ]] && continue
-    find "$_d" -maxdepth 3 -name '__init__.py' ! -path '*/.venv/*' 2>/dev/null | grep -q . && IS_WORKSPACE=$((IS_WORKSPACE + 1))
-    [ "$IS_WORKSPACE" -gt 1 ] && break
-done
-
-if [ "$IS_WORKSPACE" -le 1 ]; then
-    if [ -f "pyproject.toml" ] && grep 'known-first-party' pyproject.toml | sed 's/#.*//' | grep -q '\[\]'; then
-        fail "pyproject.toml: known-first-party está vazio"
-        warn "  → Execute ./configure.sh — detecta pacotes automaticamente"
-    fi
-fi
-
 # ─── mutmut ───────────────────────────────────────────────────────────────────
 # Mutation testing — usado em /mutation-test e /tdd (gate de qualidade)
 if command -v mutmut &>/dev/null; then
@@ -162,7 +145,14 @@ fi
 
 # ─── mutmut.toml — paths_to_mutate ───────────────────────────────────────────
 # Ignorado em workspace: mutmut.toml na raiz é irrelevante quando há sub-repos.
-if [ "$IS_WORKSPACE" -le 1 ]; then
+_WORKSPACE_COUNT=0
+for _d in */; do
+    [ -d "$_d" ] || continue
+    [[ "${_d%/}" == .* ]] && continue
+    find "$_d" -maxdepth 3 -name '__init__.py' ! -path '*/.venv/*' 2>/dev/null | grep -q . && _WORKSPACE_COUNT=$((_WORKSPACE_COUNT + 1))
+    [ "$_WORKSPACE_COUNT" -gt 1 ] && break
+done
+if [ "$_WORKSPACE_COUNT" -le 1 ]; then
     if [ -f "mutmut.toml" ] && grep -q 'paths_to_mutate = "src/"' mutmut.toml; then
         fail "mutmut.toml: paths_to_mutate aponta para 'src/' (placeholder)"
         warn "  → Execute ./configure.sh — detecta diretório automaticamente"
@@ -224,6 +214,14 @@ if command -v osascript &>/dev/null; then
     ok "osascript (notificações macOS habilitadas)"
 else
     ok "osascript não disponível — notificações desabilitadas (normal em Linux/CI)"
+fi
+
+# ─── sortImports.py ───────────────────────────────────────────────────────────
+# Organizador de imports Python — copia para ~/.config/ para uso pelo hook sort-imports-on-edit.sh
+if [ -f ".claude/hooks/sortImports.py" ]; then
+    mkdir -p "$HOME/.config"
+    cp ".claude/hooks/sortImports.py" "$HOME/.config/sortImports.py"
+    ok "sortImports.py instalado em ~/.config/"
 fi
 
 # ─── hooks executáveis ────────────────────────────────────────────────────────

@@ -150,4 +150,6 @@ ruff check .        # verificar
 ruff check --fix .  # corrigir
 ```
 
-Regras ativas: `E`, `F`, `W`, `I`. Regras `N` (nomenclatura) desabilitadas — codebase usa camelCase.
+Regras ativas: `E`, `F`, `W`. Regras `N` (nomenclatura) desabilitadas — codebase usa camelCase.
+
+Ordenação de imports é gerenciada por `sortImports.py` (`.claude/hooks/sortImports.py`), não pelo ruff.
