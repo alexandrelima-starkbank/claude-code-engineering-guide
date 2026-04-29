@@ -33,16 +33,16 @@ def allowed(result):
 class RmRfTest(TestCase):
 
     def testRmRf_basic_blocked(self):
-        self.assertTrue(blocked(run("rm -rf /tmp/test")))
+        self.assertTrue(blocked(run("rm -rf /var/testdir")))
 
     def testRmRf_fr_variant_blocked(self):
-        self.assertTrue(blocked(run("rm -fr /tmp/test")))
+        self.assertTrue(blocked(run("rm -fr /var/testdir")))
 
     def testRmRf_separatedFlags_blocked(self):
-        self.assertTrue(blocked(run("rm -r -f /tmp/test")))
+        self.assertTrue(blocked(run("rm -r -f /var/testdir")))
 
     def testRmRf_sudo_blocked(self):
-        self.assertTrue(blocked(run("sudo rm -rf /tmp/test")))
+        self.assertTrue(blocked(run("sudo rm -rf /var/testdir")))
 
     def testRm_singleFile_allowed(self):
         self.assertTrue(allowed(run("rm /tmp/file.txt")))

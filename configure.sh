@@ -87,6 +87,7 @@ detect_tests_dir() {
 }
 
 is_kfp_placeholder() {
+    ! grep -q 'known-first-party' pyproject.toml 2>/dev/null || \
     grep 'known-first-party' pyproject.toml 2>/dev/null | sed 's/#.*//' | grep -q '\[\]'
 }
 
@@ -101,6 +102,9 @@ apply_kfp() {
     formatted="[\"${formatted}\"]"
     sed -i.bak "s|known-first-party = .*|known-first-party = ${formatted}|" pyproject.toml
     rm -f pyproject.toml.bak
+    if ! grep -q 'known-first-party' pyproject.toml 2>/dev/null; then
+        warn "substituição pode ter falhado — verifique pyproject.toml manualmente"
+    fi
     ok "pyproject.toml → known-first-party = ${formatted}"
 }
 
@@ -389,6 +393,16 @@ else
             CURRENT_KFP=$(grep 'known-first-party' pyproject.toml 2>/dev/null \
                 | sed 's/#.*//' | sed 's/.*= //' | tr -d ' ')
             ok "pyproject.toml → known-first-party = ${CURRENT_KFP} (já configurado)"
+            ask "   Atualizar? (s/N): "
+            read -r UPDATE_KFP
+            if [[ "$UPDATE_KFP" =~ ^[sS]$ ]]; then
+                ask "   Novos pacotes (separados por vírgula): "
+                read -r INPUT_KFP
+                if [ -n "$INPUT_KFP" ]; then
+                    PKGS_CSV=$(echo "$INPUT_KFP" | sed 's/[[:space:]]//g')
+                    apply_kfp "$PKGS_CSV"
+                fi
+            fi
         else
             PKGS_RAW=$(detect_packages)
             if [ -n "$PKGS_RAW" ]; then
@@ -439,22 +453,26 @@ else
             fi
         fi
 
-        # tests_dir — sempre detecta (idempotente)
-        TESTS=$(detect_tests_dir)
+        # tests_dir — preserva se já configurado; detecta apenas no primeiro uso
         CURRENT_TD=$(grep -v '^#' mutmut.toml | grep 'tests_dir' \
             | sed 's/.*= //' | tr -d '"')
-        if [ -n "$TESTS" ]; then
-            [ "$TESTS" != "$CURRENT_TD" ] && apply_td "$TESTS" \
-                || ok "mutmut.toml → tests_dir = ${CURRENT_TD} (já configurado)"
+        if [ "$CURRENT_TD" != "tests/" ]; then
+            ok "mutmut.toml → tests_dir = ${CURRENT_TD} (já configurado)"
         else
-            warn "Nenhum diretório de testes encontrado (tests/, test/, spec/)."
-            ask "   Informe o diretório de testes: "
-            read -r INPUT_TD
-            if [ -n "$INPUT_TD" ]; then
-                INPUT_TD="${INPUT_TD%/}/"
-                apply_td "$INPUT_TD"
+            TESTS=$(detect_tests_dir)
+            if [ -n "$TESTS" ]; then
+                [ "$TESTS" != "$CURRENT_TD" ] && apply_td "$TESTS" \
+                    || ok "mutmut.toml → tests_dir = ${CURRENT_TD} (já configurado)"
             else
-                fail "tests_dir não configurado"
+                warn "Nenhum diretório de testes encontrado (tests/, test/, spec/)."
+                ask "   Informe o diretório de testes: "
+                read -r INPUT_TD
+                if [ -n "$INPUT_TD" ]; then
+                    INPUT_TD="${INPUT_TD%/}/"
+                    apply_td "$INPUT_TD"
+                else
+                    fail "tests_dir não configurado"
+                fi
             fi
         fi
     else
@@ -472,7 +490,7 @@ else
 
     if [ -f "$SERVICE_MAP" ] && grep -q 'configure\.sh' "$SERVICE_MAP"; then
         if grep -q 'single-service' "$SERVICE_MAP"; then
-            ok "SERVICE_MAP.md → single-service (já configurado)"
+            ok "SERVICE_MAP.md → single-service — mantido sem alteração"
         else
             echo "   SERVICE_MAP.md já configurado."
             ok "SERVICE_MAP.md → mantido sem alteração"
@@ -489,8 +507,98 @@ else
             rm -f "${SERVICE_MAP}.bak"
             ok "SERVICE_MAP.md → single-service"
         else
-            echo "   Para projetos multi-serviço, rode configure.sh a partir do"
-            echo "   diretório pai que contém todos os serviços."
+            ask "   Nomes dos serviços (separados por vírgula): "
+            read -r INPUT_SVCS
+            SVC_NAMES=$(echo "$INPUT_SVCS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+            declare -a SERVICE_ENTRIES
+            CWD=$(pwd)
+            echo ""
+            while IFS= read -r SVC <&3; do
+                [ -z "$SVC" ] && continue
+                if [ -d "$SVC" ]; then
+                    SVC_DIR="${CWD}/${SVC}"
+                    ok "  ${SVC} → ${SVC_DIR}"
+                    SERVICE_ENTRIES+=("${SVC}|${SVC_DIR}")
+                else
+                    ask "   Diretório de '${SVC}': "
+                    read -r SVC_DIR
+                    SERVICE_ENTRIES+=("${SVC}|${SVC_DIR}")
+                fi
+            done 3< <(echo "$SVC_NAMES")
+
+            echo ""
+            ask "   Gerar SERVICE_MAP.md? (S/n): "
+            read -r CONFIRM_MAP
+
+            if [[ ! "$CONFIRM_MAP" =~ ^[nN]$ ]]; then
+                SVC_LIST=""
+                SVC_DIRS_LIST=""
+                PIPELINE=""
+                PREV=""
+
+                for ENTRY in "${SERVICE_ENTRIES[@]}"; do
+                    SVC=$(echo "$ENTRY" | cut -d'|' -f1)
+                    DIR=$(echo "$ENTRY" | cut -d'|' -f2)
+                    SVC_LIST="${SVC_LIST}- ${SVC} — <descrição do serviço>\n"
+                    SVC_DIRS_LIST="${SVC_DIRS_LIST}- ${SVC}: ${DIR}\n"
+                    [ -n "$PREV" ] && PIPELINE="${PIPELINE} -> "
+                    PIPELINE="${PIPELINE}${SVC}"
+                    PREV="$SVC"
+                done
+
+                cat > "$SERVICE_MAP" << MAPEOF
+# Service Dependency Map
+
+<!-- Gerado por configure.sh — atualize conforme necessário. -->
+
+---
+
+## Serviços
+
+$(printf '%b' "$SVC_LIST")
+---
+
+## Pipeline de Autorização / Fluxo Principal
+
+<!-- Ajuste a sequência conforme a arquitetura real da plataforma. -->
+
+${PIPELINE}
+
+---
+
+## Contratos Compartilhados
+
+<!-- Preencha com enums, mensagens de fila e schemas compartilhados. -->
+
+**Enums compartilhados:**
+- \`<NomeDoEnum>\` — usado em: <service-a>, <service-b>
+
+**Mensagens de fila (async):**
+- \`<TipoMensagem>\` — producer: <service-a>, consumer: <service-b>
+
+**Schemas de API entre serviços:**
+- \`GET /internal/<recurso>\` — chamado por: <service-b>
+
+---
+
+## Regras de Deploy
+
+1. **Campo novo (aditivo):** consumers fazem deploy antes do producer começar a enviar
+2. **Remoção de campo:** producer para de enviar antes dos consumers removerem a leitura
+3. **Enum novo:** todos os consumers devem suportar o novo valor antes do producer enviar
+4. **Mudança de schema de fila:** coordenar janela de deploy ou usar versionamento
+5. **Serviço de ledger / financeiro:** maior risco — sempre coordenar e testar em staging
+
+---
+
+## Diretórios dos Serviços
+
+$(printf '%b' "$SVC_DIRS_LIST")
+MAPEOF
+                SVC_COUNT=${#SERVICE_ENTRIES[@]}
+                ok "SERVICE_MAP.md → configurado (${SVC_COUNT} serviços)"
+            fi
         fi
     fi
 
